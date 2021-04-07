@@ -4,9 +4,13 @@
 
 This is temporary installation guide until gemify.
 
-* `gem install debug_inspector`
-* `iseq_collector`
-* RUBYOPT=-Ipath/to/lib or add `-Isrc/rb/debug/lib` for the following command
+```
+$ git clone https://github.com/ko1/debug.git
+$ gem install debug_inspector
+$ gem install iseq_collector
+$ export RUBYOPT=-I`pwd`/debug/lib
+# or add "-I`pwd`/debug/lib" for the following command
+```
 
 # How to use
 
