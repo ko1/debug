@@ -18,6 +18,5 @@ module DEBUGGER__
     end
   end
 
-  SESSION = Session.new(s = UI_TcpServer.new)
-  SESSION.management_threads << s.reader_thread
+  initialize_session UI_TcpServer.new
 end

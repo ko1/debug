@@ -59,9 +59,11 @@ module DEBUGGER__
     end
   end
 
-  SESSION = Session.new(UI_Repl.new)
+  initialize_session UI_Repl.new
 
   PREV_HANDLER = trap(:SIGINT){
     ThreadClient.current.on_trap
   }
+
+  DEBUGGER__.add_line_breakpoint $0, 1
 end

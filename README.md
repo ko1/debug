@@ -2,14 +2,8 @@
 
 ## How to install
 
-This is temporary installation guide until gemify.
-
 ```
-$ git clone https://github.com/ko1/debug.git
-$ gem install debug_inspector
-$ gem install iseq_collector
-$ export RUBYOPT=-I`pwd`/debug/lib
-# or add "-I`pwd`/debug/lib" for the following command
+$ gem install debug
 ```
 
 # How to use
@@ -19,7 +13,7 @@ $ export RUBYOPT=-I`pwd`/debug/lib
 ### REPL debug
 
 ```
-$ ruby -r debug target.rb
+$ ruby -r debug/repl target.rb
 ```
 
 and you can see the debugger prompt. The program was suspended at the beggining of target.rb. To continue the program, type `c` (or `continue`). See other debug commands below.

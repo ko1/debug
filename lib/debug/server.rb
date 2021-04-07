@@ -105,7 +105,7 @@ module DEBUGGER__
     end
 
     def pause
-      $stderr.puts "DEBUG: pause request"
+      # $stderr.puts "DEBUG: pause request"
       Process.kill(:SIGINT, Process.pid)
     end
 

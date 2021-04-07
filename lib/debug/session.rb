@@ -82,11 +82,10 @@ module DEBUGGER__
       end
 
       @management_threads = [@session_server]
+      @management_threads << @ui.reader_thread if @ui.respond_to? :reader_thread
 
       setup_threads
     end
-
-    attr_reader :management_threads
 
     def source path
       @sr.get(path)
@@ -594,5 +593,19 @@ module DEBUGGER__
 
   def self.add_catch_breakpoint pat
     ::DEBUGGER__::SESSION.add_catch_breakpoint pat
+  end
+
+  class << self
+    define_method :initialize_session do |ui|
+      ::DEBUGGER__.const_set(:SESSION, Session.new(ui))
+
+      # default breakpoints
+      ::DEBUGGER__.add_catch_breakpoint 'RuntimeError'
+
+      Binding.module_eval do
+        ::DEBUGGER__.add_line_breakpoint __FILE__, __LINE__ + 1
+        def bp; nil; end
+      end
+    end
   end
 end
