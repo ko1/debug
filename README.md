@@ -6,6 +6,8 @@
 $ gem install debug
 ```
 
+or specify `-Ipath/to/debug/lib` in `RUBYOPT` or each ruby command-line options for development.
+
 # How to use
 
 ## Invoke with debugger
