@@ -176,7 +176,8 @@ module DEBUGGER__
           open(".rdb_breakpoints.json", 'w'){|f| JSON.dump(h, f)}
         end
 
-        system("vim -R -S bp.vim #{@tc.location.path}")
+        vimsrc = File.join(__dir__, 'bp.vim')
+        system("vim -R -S #{vimsrc} #{@tc.location.path}")
 
         if File.exist?(".rdb_breakpoints.json")
           pp JSON.load(File.read(".rdb_breakpoints.json"))
