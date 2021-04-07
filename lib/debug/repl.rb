@@ -15,9 +15,18 @@ module DEBUGGER__
     end
 
     def puts str
-      str.each_line{|line|
-        $stdout.puts line.chomp
-      }
+      case str
+      when Array
+        str.each{|line|
+          $stdout.puts line.chomp
+        }
+      when String
+        str.each_line{|line|
+          $stdout.puts line.chomp
+        }
+      when nil
+        $stdout.puts
+      end
     end
 
     begin

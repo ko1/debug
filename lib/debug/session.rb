@@ -293,9 +293,11 @@ module DEBUGGER__
         @repl_prev_line = nil
         return :retry
       end
+
     rescue Interrupt
       return :retry
-
+    rescue SystemExit
+      raise
     rescue Exception => e
       @ui.puts "[REPL ERROR] #{e.inspect}"
       @ui.puts e.backtrace.map{|e| '  ' + e}

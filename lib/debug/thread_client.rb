@@ -385,8 +385,11 @@ module DEBUGGER__
           raise [ev, *args].inspect
         end
       end
+
+    rescue SystemExit
+      raise
     rescue Exception => e
-      pp e, e.backtrace
+      pp [__FILE__, __LINE__, e, e.backtrace]
       raise
     ensure
       @mode = nil
