@@ -214,9 +214,9 @@ module DEBUGGER__
     def klass_sig frame
       klass = frame.class
       if klass == frame.self.singleton_class
-        klass_sig = "#{frame.self}."
+        "#{frame.self}."
       else
-        klass_sig = "#{frame.class}#"
+        "#{frame.class}#"
       end
     end
 

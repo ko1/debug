@@ -51,6 +51,7 @@ module DEBUGGER__
       @th_clients = {} # {Thread => ThreadClient}
       @q_evt = Queue.new
       @displays = []
+      @tc = nil
 
       @tp_load_script = TracePoint.new(:script_compiled){|tp|
         ThreadClient.current.on_load tp.instruction_sequence, tp.eval_script
@@ -438,7 +439,6 @@ module DEBUGGER__
       when /\A(\d+)\z/
         add_line_breakpoint @tc.location.path, $1.to_i, cond
       when /\A(.+):(\d+)\z/
-        path = File.expand_path
         add_line_breakpoint $1, $2.to_i, cond
       when /\A(.+)[\.\#](.+)\z/
         add_method_breakpoint arg, cond
@@ -499,7 +499,7 @@ module DEBUGGER__
       @sr.add iseq, src
       @reserved_bps.each{|(path, line, cond)|
         if path == iseq.absolute_path
-          bp = add_line_breakpoint(path, line, cond)
+          add_line_breakpoint(path, line, cond)
         end
       }
     end
