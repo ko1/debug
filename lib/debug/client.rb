@@ -2,6 +2,8 @@ require 'socket'
 require_relative 'config'
 
 module DEBUGGER__
+  class CommandLineOptionError < Exception; end
+
   class Client
     begin
       require 'readline'
@@ -13,14 +15,6 @@ module DEBUGGER__
         print "\n(rdb) "
         gets
       end
-    end
-
-    def help
-      puts "-run -e attach       # connect via UNIX Domain socket"
-      puts "-run -e attach name  # connect via UNIX Domain socket with specified name"
-      puts "-run -e attach port_num  # connect via TCP/IP socket with specified port"
-      puts "-run -e attach host port_num"
-      puts "               # connect via TCP/IP socket with specified host and port"
     end
 
     def initialize argv
@@ -40,8 +34,7 @@ module DEBUGGER__
       when 2
         connect_tcp argv[0], argv[1]
       else
-        help
-        exit!
+        raise CommandLineOptionError
       end
     end
 
@@ -69,7 +62,7 @@ module DEBUGGER__
         files = Dir.glob(DEBUGGER__.create_unix_domain_socket_name_prefix + '*')
         case files.size
         when 0
-          $stderr.puts "There is no debug sessions."
+          $stderr.puts "No debug session is available."
           exit
         when 1
           @s = Socket.unix(files.first)
