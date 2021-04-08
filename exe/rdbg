@@ -10,11 +10,11 @@ opt = OptionParser.new do |o|
   o.banner = "#{$0} [options] -- [debuggee options]"
   o.separator ''
 
-  o.separator 'Start debuggee mode:'
+  o.separator 'Debug console mode:'
   o.on('-n', '--no-stop', 'Do not stop at the beggining of the script.') do
     conifg[:no_stop]
   end
-  o.on('-r', '--remote', 'Start debuggee with the remote debugger attachable.',
+  o.on('-R', '--remote', 'Start debuggee with the remote debugger attachable.',
                          'If TCP/IP options are not given,',
                          'a UNIX domain socket will be used.') do
     config[:remote] = true
@@ -27,24 +27,28 @@ opt = OptionParser.new do |o|
   end
 
   o.separator ''
-  o.separator "  '#{$0} target.rb foo bar' start like 'ruby target.rb foo bar'."
-  o.separator "  '#{$0} -- -r foo -e bar' start like 'ruby -r foo -e bar'."
-  o.separator "  '#{$0} -r target.rb foo bar' accept attaching with UNIX domain socket."
-  o.separator "  '#{$0} -r --port 1234 target.rb foo bar' accepts attaching with TCP/IP localhost:1234."
+  o.separator '  Debug console mode runs Ruby program with the debug console.'
+  o.separator ''
+  o.separator "  #{$0} target.rb foo bar                 starts like 'ruby target.rb foo bar'."
+  o.separator "  #{$0} -- -R foo -e bar                  starts like 'ruby -r foo -e bar'."
+  o.separator "  #{$0} -R target.rb foo bar              accepts attaching with UNIX domain socket."
+  o.separator "  #{$0} -R --port 1234 target.rb foo bar  accepts attaching with TCP/IP localhost:1234."
 
   o.separator ''
   o.separator 'Attach mode:'
-  o.on('--attach', 'Attach to debuggee process.') do
+  o.on('-A', '--attach', 'Attach to debuggee process.') do
     config[:mode] = :attach
   end
 
   o.separator ''
-  o.separator "  '#{$0} --attach' tries to connect a UNIX domain socket."
-  o.separator "  #{' ' * $0.size}            If there are multiple processes are waiting for connections,"
-  o.separator "  #{' ' * $0.size}            list possible debuggee names."
-  o.separator "  '#{$0} --attach path' tries to connect a path UNIX domain socket."
-  o.separator "  '#{$0} --attach port' tries to connect localhost:port via TCP/IP."
-  o.separator "  '#{$0} --attach host port' tris to connect host:port via TCP/IP."
+  o.separator '  Attach mode attaches the remote debug console to the debuggee process.'
+  o.separator ''
+  o.separator "  '#{$0} -A' tries to connect via UNIX domain socket."
+  o.separator "  #{' ' * $0.size}            If there are multiple processes are waiting for the"
+  o.separator "  #{' ' * $0.size}            debugger connection, list possible debuggee names."
+  o.separator "  '#{$0} -A path' tries to connect via UNIX domain socket with given path name."
+  o.separator "  '#{$0} -A port' tries to connect localhost:port via TCP/IP."
+  o.separator "  '#{$0} -A host port' tris to connect host:port via TCP/IP."
 end
 
 opt.parse!(ARGV)
@@ -56,18 +60,22 @@ when :start
     if config[:port]
       ENV['RUBY_DEBUG_PORT'] = config[:port]
       ENV['RUBY_DEBUG_HOST'] = config[:host]
-      start_mode = "debug/tcpserver"
+      start_mode = "debug/open"
     else
-      start_mode = "debug/unixserver"
+      start_mode = "debug/open"
     end
   else
-    start_mode = "debug/repl"
+    start_mode = "debug/console"
   end
   exec("#{RbConfig.ruby}", "-I#{File.expand_path(File.dirname(__dir__))}/lib", "-r" + start_mode, *ARGV)
 when :attach
   require_relative "../lib/debug/client"
   begin
-    connect ARGV
+    if ARGV.empty? && config[:port]
+      connect [config[:host], config[:port]].compact
+    else
+      connect ARGV
+    end
   rescue DEBUGGER__::CommandLineOptionError
     puts opt.help
   end

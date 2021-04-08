@@ -15,12 +15,12 @@ module DEBUGGER__
     path
   end
 
-  def self.create_unix_domain_socket_name_prefix
+  def self.create_unix_domain_socket_name_prefix(base_dir = unix_domain_socket_basedir)
     user = ENV['USER'] || 'ruby-debug'
-    File.join(unix_domain_socket_basedir, "ruby-debug-#{user}")
+    File.join(base_dir, "ruby-debug-#{user}")
   end
 
-  def self.create_unix_domain_socket_name
-    create_unix_domain_socket_name_prefix + "-#{Process.pid}"
+  def self.create_unix_domain_socket_name(base_dir = unix_domain_socket_basedir)
+    create_unix_domain_socket_name_prefix(base_dir) + "-#{Process.pid}"
   end
 end

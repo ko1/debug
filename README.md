@@ -3,56 +3,189 @@
 ## How to install
 
 ```
-$ gem install debug
+$ gem install debug --pre
 ```
 
-or specify `-Ipath/to/debug/lib` in `RUBYOPT` or each ruby command-line options for development.
+or specify `-Ipath/to/debug/lib` in `RUBYOPT` or each ruby command-line options, especially for debug lib development.
 
 # How to use
 
 ## Invoke with debugger
 
-### REPL debug
+You can run ruby program on debugger on the console or remote access.
+
+* (a) Run a ruby program on the debug console
+* (b) Run a ruby program with opning debug port
+  * (b-1) Open with UNIX domain socket
+  * (b-2) Open with TCP/IP port
+
+(b) is useful when you want to use debugging features after running the program.
+(b-2) is also useful when you don't have a ssh access for the Ruby process.
+
+To use debugging feature, you can have 3 ways.
+
+* (1) Use `rdbg` command
+* (2) Use `-r debug...` command line option
+* (3) Write `require 'debug...'` in .rb files
+
+### Console debug
 
 ```
-$ ruby -r debug/repl target.rb
+# (1) Use `rdbg` command
+$ rdbg target.rb
+$ rdbg -- -r foo -e expr # -- is required to make clear rdbg options and ruby's options
+
+# (2) Use `-r debug/console` command line option
+
+$ ruby -r debug/console target.rb
+
+# (3) Write `require 'debug...' in .rb files
+
+$ cat target.rb
+require 'debug/console' # start the debug console
+...
+
+# or
+
+$ cat target.rb
+require 'debug/session'  # introduce the functionality
+DEBUGGER__.console       # and start the debug console
+
+$ ruby target.rb
 ```
 
-and you can see the debugger prompt. The program was suspended at the beggining of target.rb. To continue the program, type `c` (or `continue`). See other debug commands below.
+When you run the program with the debug console, you will see the debug console prompt `(rdbg)`.
+The debuggee program (`target.rb`) is suspended at the beggining of `target.rb`.
 
-You can re-enable debug command mode by `Ctrl-C`.
+You can type any debugger's command described bellow. "c" or "continue" resume the debuggee program.
+You can suspend the debuggee program and show the debug console with `Ctrl-C`.
+
+The following example shows simple usage of the debug console. You can show the all variables
+
+```
+$ rdbg  ~/src/rb/target.rb
+
+[1, 5] in /home/ko1/src/rb/target.rb
+=>    1| a = 1
+      2| b = 2
+      3| c = 3
+      4| p [a + b + c]
+      5|
+--> #0  /home/ko1/src/rb/target.rb:1:in `<main>'
+
+(rdbg) info locals                                      # Show all local variables
+ %self => main
+ a => nil
+ b => nil
+ c => nil
+
+(rdbg) p a
+=> nil
+
+(rdbg) s                                                # Step in ("s" is a short name of "step")
+
+[1, 5] in /home/ko1/src/rb/target.rb
+      1| a = 1
+=>    2| b = 2
+      3| c = 3
+      4| p [a + b + c]
+      5|
+--> #0  /home/ko1/src/rb/target.rb:2:in `<main>'
+
+(rdbg)                                                  # Repeat the last command ("step")
+
+[1, 5] in /home/ko1/src/rb/target.rb
+      1| a = 1
+      2| b = 2
+=>    3| c = 3
+      4| p [a + b + c]
+      5|
+--> #0  /home/ko1/src/rb/target.rb:3:in `<main>'
+
+(rdbg)                                                  # Repeat the last command ("step")
+
+[1, 5] in /home/ko1/src/rb/target.rb
+      1| a = 1
+      2| b = 2
+      3| c = 3
+=>    4| p [a + b + c]
+      5|
+--> #0  /home/ko1/src/rb/target.rb:4:in `<main>'
+
+(rdbg) info locals                                      # Show all local variables
+ %self => main
+ a => 1
+ b => 2
+ c => 3
+
+(rdbg) c                                                # Contineu the program ("c" is a short name of "continue")
+[6]
+```
 
 ### Remote debug (1) UNIX domain socket
 
 ```
-$ ruby -r debug/unixserver target.rb
+# (1) Use `rdbg` command
+$ rdbg -R target.rb
+Debugger can attach via UNIX domain socket (/home/ko1/.ruby-debug-sock/ruby-debug-ko1-5042)
+...
+
+# (2) Use `-r debug/open` command line option
+
+$ ruby -r debug/open target.rb
+Debugger can attach via UNIX domain socket (/home/ko1/.ruby-debug-sock/ruby-debug-ko1-5042)
+...
+
+# (3) Write `require 'debug/open' in .rb files
+$ cat target.rb
+require 'debug/open' # open the debugger entry point by UNIX domain socket.
+...
+
+# or
+
+$ cat target.rb
+require 'debug/server' # introduce remote debugging feature
+DEBUGGER__.open        # open the debugger entry point by UNIX domain socket.
+# or DEBUGGER__.open_unix to specify UNIX domain socket.
+
+$ ruby target.rb
+Debugger can attach via UNIX domain socket (/home/ko1/.ruby-debug-sock/ruby-debug-ko1-5042)
+...
 ```
 
 It runs target.rb and accept debugger connection within UNIX domain socket.
 
-You can attach the program with the folliowing command:
+You can attach the program with the following command:
 
 ```
-$ ruby -r debug/client -e connect
-Debugger can attach via UNIX domain socket (/home/ko1/.ruby-debug-sock/ruby-debug-ko1-20642)
-...
+$ rdbg --attach
+
+[1, 4] in /home/ko1/src/rb/target.rb
+      1| (1..).each do |i|
+=>    2|   sleep 0.5
+      3|   p i
+      4| end
+--> #0  [C] /home/ko1/src/rb/target.rb:2:in `sleep'
+    #1  /home/ko1/src/rb/target.rb:2:in `block in <main>' {|i=17|}
+    #2  [C] /home/ko1/src/rb/target.rb:1:in `each'
+    # and 1 frames (use `bt' command for all frames)
 ```
 
-The debugee process will be suspended and wait for the debug command.
+The debugee process will be suspended and wait for the debug command from the remote debugger.
 
 If you are running multiple debuggee processes, this command shows the selection like that:
 
 ```
-$ ruby -r debug/client -e connect
+$ rdbg --attach
 Please select a debug session:
   ruby-debug-ko1-19638
   ruby-debug-ko1-19603
 ```
 
-and you need to specify one:
+and you need to specify one (copy and paste the name):
 
 ```
-$ ruby -r debug/client -e connect ruby-debug-ko1-19638
+$ rdbg --attach ruby-debug-ko1-19638
 ```
 
 The socket file is located at
@@ -62,20 +195,50 @@ The socket file is located at
 
 ### Remote debug (2) TCP/IP
 
+You can open the TCP/IP port instead of using UNIX domain socket.
+
 ```
-$ RUBY_DEBUG_PORT=12345 RUBY_DEBUG_HOST=localhost ruby -r debug/tcpserver target.rb
+# (1) Use `rdbg` command
+$ rdbg -R --port=12345 target.rb
+Debugger can attach via TCP/IP (localhost:12345)
+...
+
+# (2) Use `-r debug/open` command line option
+
+$ RUBY_DEBUG_PORT=12345 ruby -r debug/open target.rb
+Debugger can attach via TCP/IP (localhost:12345)
+...
+
+# (3) Write `require 'debug/open' in .rb files
+$ cat target.rb
+require 'debug/open' # open the debugger entry point by UNIX domain socket.
+...
+
+# and run with environment variable RUBY_DEBUG_PORT
+$ RUBY_DEBUG_PORT=12345 ruby target.rb
+Debugger can attach via TCP/IP (localhost:12345)
+...
+
+# or
+
+$ cat target.rb
+require 'debug/server' # introduce remote debugging feature
+DEBUGGER__.open(port: 12345)
+# or DEBUGGER__.open_tcp(port: 12345)
+
+$ ruby target.rb
 Debugger can attach via TCP/IP (localhost:12345)
 ...
 ```
 
-This command invoke target.rb with TCP/IP attach server with given port and host. If host is not given, `localhost` will be used. 
+You can also specify the host with `RUBY_DEBUG_HOST` environment variable. Also `DEBUGGER__.open` method accepts a `host:` keyword parameter. If the host is not given, `localhost` will be used.
+
+To attach it, specify the port number (and hostname if needed).
 
 ```
-$ ruby -r debug/client -e connect localhost 12345
+$ rdbg --attach 12345
+$ rdbg --attach hostname 12345
 ```
-
-tries to connect with given host (`localhost`) and port (`12345`). You can eliminate host part and `localhost` will be used.
-
 
 ## Debug command
 
