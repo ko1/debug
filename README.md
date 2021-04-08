@@ -1,6 +1,19 @@
 # debug.rb
 
-## How to install
+debug.rb is replacement of traditional lib/debug.rb standard library which is implemented by `set_trace_func`.
+New debug.rb has several advantages:
+
+* Fast: No performance penalty on non-stepping mode and non-breakpoints.
+* Remote debugging: Support remote debugging natively.
+  * UNIX domain socket
+  * TCP/IP
+  * VSCode/DAP integration (TODO)
+* Extensible: application can introduce debugging support with several methods
+  * By `rdbg` command
+  * By loading libraries with `-r` command line option
+  * By calling Ruby's method explicitly
+
+# How to install
 
 ```
 $ gem install debug --pre
@@ -240,7 +253,7 @@ $ rdbg --attach 12345
 $ rdbg --attach hostname 12345
 ```
 
-## Debug command
+## Debug command on the debug console
 
 * `Enter` repeats the last command (useful when repeating `step`s).
 * `Ctrl-D` is equal to `quit` command.
@@ -256,9 +269,9 @@ $ rdbg --attach hostname 12345
 * `c[ontinue]`
   * Resume the program.
 * `q[uit]` or `Ctrl-D`
-  * Finish debugger (with a process, if not remote debugging).
+  * Finish debugger (with the debuggee process on non-remote debugging).
 * `kill`
-  * Stop the debuggee program.
+  * Stop the debuggee process.
 
 ### Breakpoint
 
