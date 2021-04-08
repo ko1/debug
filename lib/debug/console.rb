@@ -66,6 +66,14 @@ module DEBUGGER__
     ThreadClient.current.on_trap
   }
 
-  DEBUGGER__.add_line_breakpoint $0, 1
+  if (locs = caller_locations).all?{|loc| /require/ =~ loc.label}
+    DEBUGGER__.add_line_breakpoint $0, 1
+  else
+    locs.each{|loc|
+      if /require/ !~ loc.label
+        add_line_breakpoint loc.absolute_path, loc.lineno + 1, oneshot: true
+        break
+      end
+    }
+  end
 end
-

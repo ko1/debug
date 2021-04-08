@@ -511,7 +511,7 @@ module DEBUGGER__
       bp
     end
 
-    def add_line_breakpoint_exact iseq, events, file, line, cond
+    def add_line_breakpoint_exact iseq, events, file, line, cond, oneshot
       if @bps[[file, line]]
         return nil # duplicated
       end
@@ -519,15 +519,15 @@ module DEBUGGER__
       bp = case
         when events.include?(:RUBY_EVENT_CALL)
           # "def foo" line set bp on the beggining of method foo
-          LineBreakpoint.new(:call, iseq, line, cond)
+          LineBreakpoint.new(:call, iseq, line, cond, oneshot: oneshot)
         when events.include?(:RUBY_EVENT_LINE)
-          LineBreakpoint.new(:line, iseq, line, cond)
+          LineBreakpoint.new(:line, iseq, line, cond, oneshot: oneshot)
         when events.include?(:RUBY_EVENT_RETURN)
-          LineBreakpoint.new(:return, iseq, line, cond)
+          LineBreakpoint.new(:return, iseq, line, cond, oneshot: oneshot)
         when events.include?(:RUBY_EVENT_B_RETURN)
-          LineBreakpoint.new(:b_return, iseq, line, cond)
+          LineBreakpoint.new(:b_return, iseq, line, cond, oneshot: oneshot)
         when events.include?(:RUBY_EVENT_END)
-          LineBreakpoint.new(:end, iseq, line, cond)
+          LineBreakpoint.new(:end, iseq, line, cond, oneshot: oneshot)
         else
           nil
         end
@@ -536,7 +536,7 @@ module DEBUGGER__
 
     NearestISeq = Struct.new(:iseq, :line, :events)
 
-    def add_line_breakpoint_nearest file, line, cond
+    def add_line_breakpoint_nearest file, line, cond, oneshot
       nearest = nil # NearestISeq
 
       ObjectSpace.each_iseq{|iseq|
@@ -563,7 +563,7 @@ module DEBUGGER__
       }
 
       if nearest
-        add_line_breakpoint_exact nearest.iseq, nearest.events, file, nearest.line, cond
+        add_line_breakpoint_exact nearest.iseq, nearest.events, file, nearest.line, cond, oneshot
       else
         return nil
       end
@@ -575,9 +575,9 @@ module DEBUGGER__
       file
     end
 
-    def add_line_breakpoint file, line, cond = nil
+    def add_line_breakpoint file, line, cond = nil, oneshot: false
       file = resolve_path(file)
-      bp = add_line_breakpoint_nearest file, line, cond
+      bp = add_line_breakpoint_nearest file, line, cond, oneshot
       @reserved_bps << [file, line, cond] unless bp
       bp
     end
@@ -587,8 +587,14 @@ module DEBUGGER__
     end
   end
 
-  def self.add_line_breakpoint file, line, if: if_not_given =  true
-    ::DEBUGGER__::SESSION.add_line_breakpoint file, line, if_not_given ? nil : binding.local_variable_get(:if)
+  def self.console
+    require_relative 'console'
+    loc = caller_locations(1, 1).first
+    add_line_breakpoint loc.absolute_path, loc.lineno + 1, oneshot: true
+  end
+
+  def self.add_line_breakpoint file, line, if: if_not_given =  true, oneshot: true
+    ::DEBUGGER__::SESSION.add_line_breakpoint file, line, if_not_given ? nil : binding.local_variable_get(:if), oneshot: true
   end
 
   def self.add_catch_breakpoint pat
