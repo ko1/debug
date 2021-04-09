@@ -130,16 +130,30 @@ module DEBUGGER__
       # p cmd: [cmd, *arg]
 
       case cmd
+      ### Control flow
 
-      # control
+      # * `s[tep]`
+      #   * Step in. Resume the program until next breakable point.
       when 's', 'step'
         @tc << [:step, :in]
+
+      # * `n[ext]`
+      #   * Step over. Resume the program until next line.
       when 'n', 'next'
         @tc << [:step, :next]
+
+      # * `fin[ish]`
+      #   * Finish this frame. Resume the program until the current frame is finished.
       when 'fin', 'finish'
         @tc << [:step, :finish]
+
+      # * `c[ontinue]`
+      #   * Resume the program.
       when 'c', 'continue'
         @tc << :continue
+
+      # * `q[uit]` or `Ctrl-D`
+      #   * Finish debugger (with the debuggee process on non-remote debugging).
       when 'q', 'quit'
         if ask 'Really quit?'
           @ui.quit arg.to_i
@@ -147,6 +161,9 @@ module DEBUGGER__
         else
           return :retry
         end
+
+      # * `kill`
+      #   * Stop the debuggee process.
       when 'kill'
         if ask 'Really quit?'
           exit! (arg || 1).to_i
@@ -154,7 +171,16 @@ module DEBUGGER__
           return :retry
         end
 
-      # breakpoints
+      ### Breakpoint
+
+      # * `b[reak]`
+      #   * Show all breakpoints.
+      # * `b[reak] <line>`
+      #   * Set breakpoint on `<line>` at the current frame's file.
+      # * `b[reak] <file>:<line>`
+      #   * Set breakpoint on `<file>:<line>`.
+      # * `b[reak] ... if <expr>`
+      #   * break if `<expr>` is true.
       when 'b', 'break'
         if arg == nil
           show_bps
@@ -163,6 +189,8 @@ module DEBUGGER__
           show_bps bp if bp
         end
         return :retry
+
+      # skip
       when 'bv'
         h = Hash.new{|h, k| h[k] = []}
         @bps.each{|key, bp|
@@ -184,12 +212,22 @@ module DEBUGGER__
         end
 
         return :retry
+
+      # * `catch <Error>`
+      #   * Set breakpoint on raising `<Error>`.
       when 'catch'
         if arg
           bp = add_catch_breakpoint arg
           show_bps bp if bp
+        else
+          show_bps
         end
         return :retry
+
+      # * `del[ete]`
+      #   * delete all breakpoints.
+      # * `del[ete] <bpnum>`
+      #   * delete specified breakpoint.
       when 'del', 'delete'
         bp =
         case arg
@@ -206,42 +244,47 @@ module DEBUGGER__
         @ui.puts "deleted: \##{bp[0]} #{bp[1]}" if bp
         return :retry
 
-      # evaluate
-      when 'p'
-        @tc << [:eval, :p, arg.to_s]
-      when 'pp'
-        @tc << [:eval, :pp, arg.to_s]
-      when 'e', 'eval', 'call'
-        @tc << [:eval, :call, arg]
-      when 'irb'
-        @tc << [:eval, :call, 'binding.irb']
+      ### Information
 
-      # evaluate/frame selector
-      when 'up'
-        @tc << [:frame, :up]
-      when 'down'
-        @tc << [:frame, :down]
-      when 'frame', 'f'
-        @tc << [:frame, :set, arg]
-
-      # information
+      # * `bt` or `backtrace`
+      #   * Show backtrace (frame) information.
       when 'bt', 'backtrace'
         @tc << [:show, :backtrace]
+
+      # * `list`
+      #   * Show current frame's source code.
       when 'list'
         @tc << [:show, :list]
-      when 'info'
+
+      # * `info l[ocal[s]]`
+      #   * Show current frame's local variables. It includes `self` as `%self` and a return value as `%return`.
+      # * `info i[nstance]` or `info ivars`
+      #   * Show current frame's insntance variables.
+      when 'i', 'info'
         case arg
         when 'l', 'local', 'locals'
           @tc << [:show, :locals]
         when 'i', 'instance', 'ivars'
           @tc << [:show, :ivars]
+        when nil
+          @tc << [:show, :all]
         else
           @ui.puts "unknown info argument: #{arg}"
           return :retry
         end
+
+      # * `display`
+      #   * Show display setting.
+      # * `display <expr>`
+      #   * Show the result of `<expr>` at every suspended timing.
       when 'display'
         @displays << arg if arg && !arg.empty?
         @tc << [:eval, :display, @displays]
+
+      # * `undisplay`
+      #   * Remove all display settings.
+      # * `undisplay <displaynum>`
+      #   * Remove a specified display setting.
       when 'undisplay'
         case arg
         when /(\d+)/
@@ -258,7 +301,8 @@ module DEBUGGER__
         end
         return :retry
 
-      # trace
+      # * `trace [on|off]`
+      #   * enable or disable line tracer.
       when 'trace'
         case arg
         when 'on'
@@ -277,7 +321,52 @@ module DEBUGGER__
         end
         return :retry
 
-      # threads
+      ### Frame control
+
+      # * `f[rame]`
+      #   * Show current frame.
+      # * `f[rame] <framenum>`
+      #   * Specify frame. Evaluation are run on this frame environement.
+      when 'frame', 'f'
+        @tc << [:frame, :set, arg]
+
+      # * `up`
+      #   * Specify upper frame.
+      when 'up'
+        @tc << [:frame, :up]
+
+      # * `down`
+      #   * Specify down frame.
+      when 'down'
+        @tc << [:frame, :down]
+
+      ### Evaluate
+
+      # * `p <expr>`
+      #   * Evaluate like `p <expr>` on the current frame.
+      when 'p'
+        @tc << [:eval, :p, arg.to_s]
+
+      # * `pp <expr>`
+      #   * Evaluate like `pp <expr>` on the current frame.
+      when 'pp'
+        @tc << [:eval, :pp, arg.to_s]
+
+      # * `e[val] <expr>`
+      #   * Evaluate `<expr>` on the current frame.
+      when 'e', 'eval', 'call'
+        @tc << [:eval, :call, arg]
+
+      # skip
+      when 'irb'
+        @tc << [:eval, :call, 'binding.irb']
+
+      ### Thread control
+
+      # * `th[read]
+      #   * Show all threads.
+      # * `th[read] <thnum>`
+      #   * Switch thread specified by `<thnum>`.
       when 'th', 'thread'
         case arg
         when nil, 'list', 'l'
@@ -289,6 +378,29 @@ module DEBUGGER__
         end
         return :retry
 
+      ### Help
+
+      # * `h[elp]`
+      #   * Show help for all commands.
+      # * `h[elp] <command>`
+      #   * Show help for the given command.
+      when 'h', 'help'
+        if arg
+          DEBUGGER__.helps.each{|cat, cs|
+            cs.each{|ws, desc|
+              if ws.include? arg
+                @ui.puts desc
+                return :retry
+              end
+            }
+          }
+          @ui.puts "not found: #{arg}"
+        else
+          @ui.puts DEBUGGER__.help
+        end
+        return :retry
+
+      ### END
       else
         @ui.puts "unknown command: #{line}"
         @repl_prev_line = nil
@@ -364,11 +476,17 @@ module DEBUGGER__
     end
 
     def show_bps specified_bp = nil
+      disabled_bps = []
       @bps.each_with_index{|(key, bp), i|
         if !specified_bp || bp == specified_bp
-          @ui.puts "#%d %s" % [i, bp.to_s]
+          if bp.enabled?
+            @ui.puts "#%d %s" % [i, bp.to_s]
+          else
+            disabled_bps << bp
+          end
         end
       }
+      disabled_bps.each{|bp| @bps.delete bp}
     end
 
     def thread_list
@@ -618,7 +736,7 @@ module DEBUGGER__
       ::DEBUGGER__.const_set(:SESSION, Session.new(ui))
 
       # default breakpoints
-      ::DEBUGGER__.add_catch_breakpoint 'RuntimeError'
+      # ::DEBUGGER__.add_catch_breakpoint 'RuntimeError'
 
       Binding.module_eval do
         ::DEBUGGER__.add_line_breakpoint __FILE__, __LINE__ + 1
@@ -626,4 +744,47 @@ module DEBUGGER__
       end
     end
   end
+
+  def self.parse_help
+    helps = Hash.new{|h, k| h[k] = []}
+    desc = cat = nil
+    File.read(__FILE__).each_line do |line|
+      case line
+      when /\A\s*### (.+)/
+        cat = $1
+        break if $1 == 'END'
+      when /\A      when (.+)/
+        next unless cat
+        next unless desc
+        ws = $1.split(/,\s*/).map{|e| e.gsub('\'', '')}
+        helps[cat] << [ws, desc]
+        desc = nil
+      when /\A\s+# (\s*\*.+)/
+        if desc
+          desc << "\n" + $1
+        else
+          desc = $1
+        end
+      end
+    end
+    @helps = helps
+  end
+
+  def self.helps
+    (defined?(@helps) && @helps) || parse_help
+  end
+
+  def self.help
+    r = []
+    self.helps.each{|cat, cmds|
+      r << "### #{cat}"
+      r << ''
+      cmds.each{|ws, desc|
+        r << desc
+      }
+      r << ''
+    }
+    r.join("\n")
+  end
 end
+

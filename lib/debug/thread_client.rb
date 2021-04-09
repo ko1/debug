@@ -176,8 +176,7 @@ module DEBUGGER__
 
     def show_ivars
       if s = current_frame&.self
-        puts " self => #{s}"
-        s.instance_variables.eaach{|iv|
+        s.instance_variables.each{|iv|
           puts " #{iv} => #{s.instance_variable_get(iv)}"
         }
       end
@@ -367,7 +366,8 @@ module DEBUGGER__
           end
           event! :result, nil
         when :show
-          type, = *args
+          type = args.shift
+
           case type
           when :backtrace
             show_frame_all
@@ -377,9 +377,13 @@ module DEBUGGER__
             show_locals
           when :ivars
             show_ivars
+          when :all
+            show_locals
+            show_ivars
           else
             raise "unknown show param: " + args.inspect
           end
+
           event! :result, nil
         else
           raise [ev, *args].inspect

@@ -65,6 +65,10 @@ module DEBUGGER__
     def inspect
       "<#{self.class.name} #{self.to_s}>"
     end
+
+    def enabled?
+      @tp.enabled?
+    end
   end
 
   class CatchBreakpoint
