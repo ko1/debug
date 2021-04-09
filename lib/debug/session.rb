@@ -496,13 +496,21 @@ module DEBUGGER__
 
     def on_load iseq, src
       @sr.add iseq, src
-      @reserved_bps.each{|(path, line, cond)|
+      founds = []
+      @reserved_bps.each_with_index{|rbp, i|
+        (path, line, cond, oneshot) = rbp
+
         if path == (iseq.absolute_path || iseq.path)
-          unless add_line_breakpoint(path, line, cond)
-            raise "can not specify the bp for: #{path}"
+          founds << rbp
+          unless add_line_breakpoint(path, line, cond, oneshot: oneshot, reserve: false)
+            next
           end
         end
       }
+      founds.each{|rbp|
+        @reserved_bps.delete rbp
+      }
+      p @reserved_bps
     end
 
     # configuration
@@ -577,10 +585,12 @@ module DEBUGGER__
       file
     end
 
-    def add_line_breakpoint file, line, cond = nil, oneshot: false
+    def add_line_breakpoint file, line, cond = nil, oneshot: false, reserve: true
       file = resolve_path(file)
       bp = add_line_breakpoint_nearest file, line, cond, oneshot
-      @reserved_bps << [file, line, cond] unless bp
+      if !bp && reserve
+        @reserved_bps << [file, line, cond, oneshot]
+      end
       bp
     end
 
