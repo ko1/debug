@@ -84,9 +84,9 @@ module DEBUGGER__
 end
 
 if loc = DEBUGGER__.require_location
-  # require
+  # require 'debug/console' or 'debug'
   DEBUGGER__.add_line_breakpoint loc.absolute_path, loc.lineno + 1, oneshot: true
 else
   # -r
-  DEBUGGER__.add_line_breakpoint $0, 1
+  DEBUGGER__.add_line_breakpoint $0, 1, oneshot: true
 end
