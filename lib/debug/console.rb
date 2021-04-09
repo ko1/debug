@@ -66,14 +66,27 @@ module DEBUGGER__
     ThreadClient.current.on_trap
   }
 
-  if (locs = caller_locations).all?{|loc| /require/ =~ loc.label}
-    DEBUGGER__.add_line_breakpoint $0, 1
-  else
-    locs.each{|loc|
-      if /require/ !~ loc.label
-        add_line_breakpoint loc.absolute_path, loc.lineno + 1, oneshot: true
-        break
+  # String for requring location
+  # nil for -r
+  def self.require_location
+    locs = caller_locations
+    dir_prefix = /#{__dir__}/
+    locs.each do |loc|
+      case loc.absolute_path
+      when dir_prefix
+      when %r{rubygems/core_ext/kernel_require\.rb}
+      else
+        return loc
       end
-    }
+    end
+    nil
   end
+end
+
+if loc = DEBUGGER__.require_location
+  # require
+  DEBUGGER__.add_line_breakpoint loc.absolute_path, loc.lineno + 1, oneshot: true
+else
+  # -r
+  DEBUGGER__.add_line_breakpoint $0, 1
 end
