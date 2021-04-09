@@ -497,8 +497,10 @@ module DEBUGGER__
     def on_load iseq, src
       @sr.add iseq, src
       @reserved_bps.each{|(path, line, cond)|
-        if path == iseq.absolute_path
-          add_line_breakpoint(path, line, cond)
+        if path == (iseq.absolute_path || iseq.path)
+          unless add_line_breakpoint(path, line, cond)
+            raise "can not specify the bp for: #{path}"
+          end
         end
       }
     end
@@ -540,7 +542,7 @@ module DEBUGGER__
       nearest = nil # NearestISeq
 
       ObjectSpace.each_iseq{|iseq|
-        if iseq.absolute_path == file && iseq.first_lineno <= line
+        if (iseq.absolute_path || iseq.path) == file && iseq.first_lineno <= line
           iseq.traceable_lines_norec(line_events = {})
           lines = line_events.keys.sort
 
