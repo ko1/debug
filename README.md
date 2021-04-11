@@ -28,7 +28,7 @@ or specify `-Ipath/to/debug/lib` in `RUBYOPT` or each ruby command-line options,
 You can run ruby program on debugger on the console or remote access.
 
 * (a) Run a ruby program on the debug console
-* (b) Run a ruby program with opning debug port
+* (b) Run a ruby program with opening debug port
   * (b-1) Open with UNIX domain socket
   * (b-2) Open with TCP/IP port
 
@@ -68,7 +68,7 @@ $ ruby target.rb
 ```
 
 When you run the program with the debug console, you will see the debug console prompt `(rdbg)`.
-The debuggee program (`target.rb`) is suspended at the beggining of `target.rb`.
+The debuggee program (`target.rb`) is suspended at the beginning of `target.rb`.
 
 You can type any debugger's command described bellow. "c" or "continue" resume the debuggee program.
 You can suspend the debuggee program and show the debug console with `Ctrl-C`.
@@ -295,7 +295,7 @@ $ rdbg --attach hostname 12345
 * `f[rame]`
   * Show current frame.
 * `f[rame] <framenum>`
-  * Specify frame. Evaluation are run on this frame environement.
+  * Specify frame. Evaluation are run on this frame environment.
 * `up`
   * Specify upper frame.
 * `down`
@@ -317,7 +317,7 @@ $ rdbg --attach hostname 12345
 * `info l[ocal[s]]`
   * Show current frame's local variables. It includes `self` as `%self` and a return value as `%return`.
 * `info i[nstance]` or `info ivars`
-  * Show current frame's insntance variables.
+  * Show current frame's instance variables.
 * `display`
   * Show display setting.
 * `display <expr>`
@@ -335,4 +335,3 @@ $ rdbg --attach hostname 12345
   * Show all threads.
 * `th[read] <thnum>`
   * Switch thread specified by `<thnum>`
-
