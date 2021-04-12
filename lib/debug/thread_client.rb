@@ -1,3 +1,5 @@
+require 'objspace'
+
 module DEBUGGER__
   class ThreadClient
     def self.current
@@ -80,7 +82,7 @@ module DEBUGGER__
 
       if event != :pause
         show_src
-        print_frames 3
+        show_frames 3
         event! :suspend, :breakpoint
       end
 
@@ -182,7 +184,7 @@ module DEBUGGER__
       end
     end
 
-    def frame_eval src, failed_value: nil
+    def frame_eval src, failed_value: nil, re_raise: false
       begin
         b = current_frame.binding
         if b
@@ -200,7 +202,7 @@ module DEBUGGER__
           break if loc.path == __FILE__
           puts "  #{loc}"
         end
-        nil
+        raise if re_raise
       end
     end
 
@@ -267,23 +269,34 @@ module DEBUGGER__
       buff
     end
 
-    def show_frame_all
-      @target_frames.size.times{|i|
+    def show_frames max = @target_frames.size
+      size = @target_frames.size
+      max.times{|i|
+        break if i >= size
         puts frame_str(i)
       }
+      puts "    # and #{size - max} frames (use `bt' command for all frames)" if max < size
     end
 
-    def print_frame i
+    def show_frame i=0
       puts frame_str(i)
     end
 
-    def print_frames n
-      size = @target_frames.size
-      ([size, n].min).times{|i|
-        print_frame i
-      }
-      if n < size
-        puts "    # and #{size - n} frames (use `bt' command for all frames)"
+    def show_object_info expr
+      begin
+        result = frame_eval(expr, re_raise: true)
+      rescue Exception
+        # ignore
+      else
+        klass = ObjectSpace.internal_class_of(result)
+        exists = []
+        klass.ancestors.each{|k|
+          puts "= #{k}"
+          if (ms = (k.instance_methods(false) - exists)).size > 0
+            puts ms.sort.join("\t")
+            exists |= ms
+          end
+        }
       end
     end
 
@@ -342,13 +355,13 @@ module DEBUGGER__
             if @current_frame_index + 1 < @target_frames.size
               @current_frame_index += 1 
               show_src max_lines: 1
-              print_frame(@current_frame_index)
+              show_frame(@current_frame_index)
             end
           when :down
             if @current_frame_index > 0
               @current_frame_index -= 1
               show_src max_lines: 1
-              print_frame(@current_frame_index)
+              show_frame(@current_frame_index)
             end
           when :set
             if arg
@@ -360,7 +373,7 @@ module DEBUGGER__
               end
             end
             show_src max_lines: 1
-            print_frame(@current_frame_index)
+            show_frame(@current_frame_index)
           else
             raise "unsupported frame operation: #{arg.inspect}"
           end
@@ -373,15 +386,15 @@ module DEBUGGER__
             show_frame_all
           when :list
             show_src
-          when :locals
-            show_locals
-          when :ivars
-            show_ivars
-          when :all
+          when :local
+            show_frame
             show_locals
             show_ivars
+          when :object_info
+            expr = args.shift
+            show_object_info expr
           else
-            raise "unknown show param: " + args.inspect
+            raise "unknown show param: " + [type, *args].inspect
           end
 
           event! :result, nil

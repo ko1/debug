@@ -256,21 +256,17 @@ module DEBUGGER__
       when 'list'
         @tc << [:show, :list]
 
-      # * `info l[ocal[s]]`
-      #   * Show current frame's local variables. It includes `self` as `%self` and a return value as `%return`.
-      # * `info i[nstance]` or `info ivars`
-      #   * Show current frame's insntance variables.
+      # * `i[nfo]`
+      #   * Show information about the current frame (local variables)
+      #   * It includes `self` as `%self` and a return value as `%return`.
+      # * `i[nfo] <expr>
+      #   * Show information about the result of <expr>.
       when 'i', 'info'
         case arg
-        when 'l', 'local', 'locals'
-          @tc << [:show, :locals]
-        when 'i', 'instance', 'ivars'
-          @tc << [:show, :ivars]
         when nil
-          @tc << [:show, :all]
+          @tc << [:show, :local]
         else
-          @ui.puts "unknown info argument: #{arg}"
-          return :retry
+          @tc << [:show, :object_info, arg]
         end
 
       # * `display`
