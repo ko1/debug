@@ -383,7 +383,7 @@ module DEBUGGER__
 
           case type
           when :backtrace
-            show_frame_all
+            show_frames
           when :list
             show_src
           when :local
