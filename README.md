@@ -48,14 +48,14 @@ To use debugging feature, you can have 3 ways.
 $ rdbg target.rb
 $ rdbg -- -r foo -e expr # -- is required to make clear rdbg options and ruby's options
 
-# (2) Use `-r debug/console` command line option
+# (2) Use `-r debug/run` command line option
 
-$ ruby -r debug/console target.rb
+$ ruby -r debug/run target.rb
 
 # (3) Write `require 'debug...' in .rb files
 
 $ cat target.rb
-require 'debug/console' # start the debug console
+require 'debug/run' # start the debug console
 ...
 
 # or

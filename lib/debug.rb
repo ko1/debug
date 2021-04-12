@@ -1,1 +1,1 @@
-require_relative 'debug/console'
+require_relative 'debug/run'

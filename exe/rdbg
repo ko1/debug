@@ -65,7 +65,7 @@ when :start
       start_mode = "debug/open"
     end
   else
-    start_mode = "debug/console"
+    start_mode = "debug/run"
   end
   exec("#{RbConfig.ruby}", "-I#{File.expand_path(File.dirname(__dir__))}/lib", "-r" + start_mode, *ARGV)
 when :attach

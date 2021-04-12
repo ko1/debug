@@ -714,9 +714,7 @@ module DEBUGGER__
   end
 
   def self.console
-    require_relative 'console'
-    loc = caller_locations(1, 1).first
-    add_line_breakpoint loc.absolute_path, loc.lineno + 1, oneshot: true
+    require_relative 'run'
   end
 
   def self.add_line_breakpoint file, line, if: if_not_given =  true, oneshot: true
