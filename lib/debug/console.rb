@@ -10,11 +10,13 @@ module DEBUGGER__
     end
 
     def ask prompt
-      print prompt
-      (gets || '').strip
+      setup_interrupt do
+        print prompt
+        (gets || '').strip
+      end
     end
 
-    def puts str
+    def puts str = nil
       case str
       when Array
         str.each{|line|

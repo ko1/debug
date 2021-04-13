@@ -47,7 +47,7 @@ module DEBUGGER__
     def setup_interrupt
       prev_handler = trap(:SIGINT) do
         # $stderr.puts "trapped SIGINT"
-        ThreadClient.current.on_trap
+        ThreadClient.current.on_trap :SIGINT
 
         case prev_handler
         when Proc
@@ -83,12 +83,14 @@ module DEBUGGER__
       end
     end
 
-    def puts str
+    def puts str = nil
       case str
       when Array
         enum = str.each
       when String
         enum = str.each_line
+      when nil
+        enum = [''].each
       end
 
       sock do |s|

@@ -4,7 +4,7 @@ module DEBUGGER__
   initialize_session UI_Console.new
 
   PREV_HANDLER = trap(:SIGINT){
-    ThreadClient.current.on_trap
+    ThreadClient.current.on_trap :SIGINT
   }
 
   # String for requring location

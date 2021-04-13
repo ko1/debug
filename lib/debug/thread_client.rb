@@ -46,11 +46,11 @@ module DEBUGGER__
 
     ## events
 
-    def on_trap
+    def on_trap sig
       if @mode == :wait_next_action
-        raise Interrupt
+        # raise Interrupt
       else
-        on_suspend :trap
+        on_suspend :trap, sig: sig
       end
     end
 
@@ -63,11 +63,11 @@ module DEBUGGER__
       wait_next_action
     end
 
-    def on_breakpoint tp
-      on_suspend tp.event, tp
+    def on_breakpoint tp, bp
+      on_suspend tp.event, tp, bp: bp
     end
 
-    def on_suspend event, tp = nil
+    def on_suspend event, tp = nil, bp: nil, sig: nil
       @current_frame_index = 0
       @target_frames = target_frames
       cf = @target_frames.first
@@ -83,7 +83,14 @@ module DEBUGGER__
       if event != :pause
         show_src
         show_frames 3
-        event! :suspend, :breakpoint
+
+        if bp
+          event! :suspend, :breakpoint, bp.key
+        elsif sig
+          event! :suspend, :trap, sig
+        else
+          event! :suspend, event
+        end
       end
 
       wait_next_action

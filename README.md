@@ -291,7 +291,10 @@ $ rdbg --attach hostname 12345
 * `b[reak] <file>:<line>`
   * Set breakpoint on `<file>:<line>`.
 * `b[reak] ... if <expr>`
-  * break if `<expr>` is true.
+  * break if `<expr>` is true at specified location.
+* `b[reak] if <expr>`
+  * break if `<expr>` is true at any lines.
+  * Note that this feature is super slow.
 * `catch <Error>`
   * Set breakpoint on raising `<Error>`.
 * `del[ete]`

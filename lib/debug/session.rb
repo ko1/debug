@@ -70,6 +70,17 @@ module DEBUGGER__
             on_load iseq, src
             tc << :continue
           when :suspend
+            case ev_args.first
+            when :breakpoint
+              bp, i = bp_index ev_args[1]
+              if bp
+                @ui.puts "\nStop by \##{i} #{bp}"
+              end
+            when :trap
+              @ui.puts ''
+              @ui.puts "\nStop by #{ev_args[1]}"
+            end
+
             if @displays.empty?
               wait_command_loop tc
             else
@@ -180,7 +191,10 @@ module DEBUGGER__
       # * `b[reak] <file>:<line>`
       #   * Set breakpoint on `<file>:<line>`.
       # * `b[reak] ... if <expr>`
-      #   * break if `<expr>` is true.
+      #   * break if `<expr>` is true at specified location.
+      # * `b[reak] if <expr>`
+      #   * break if `<expr>` is true at any lines.
+      #   * Note that this feature is super slow.
       when 'b', 'break'
         if arg == nil
           show_bps
@@ -471,18 +485,34 @@ module DEBUGGER__
       exit!
     end
 
-    def show_bps specified_bp = nil
+    def iterate_bps
       disabled_bps = []
-      @bps.each_with_index{|(key, bp), i|
-        if !specified_bp || bp == specified_bp
-          if bp.enabled?
-            @ui.puts "#%d %s" % [i, bp.to_s]
-          else
-            disabled_bps << bp
-          end
+      i = 0
+      @bps.each{|key, bp|
+        if bp.enabled?
+          yield key, bp, i
+          i += 1
+        else
+          disabled_bps << bp
         end
       }
+    ensure
       disabled_bps.each{|bp| @bps.delete bp}
+    end
+
+    def show_bps specific_bp = nil
+      iterate_bps do |key, bp, i|
+        @ui.puts "#%d %s" % [i, bp.to_s] if !specific_bp || bp == specific_bp
+      end
+    end
+
+    def bp_index specific_bp_key
+      iterate_bps do |key, bp, i|
+        if key == specific_bp_key
+          return [bp, i]
+        end
+      end
+      nil
     end
 
     def thread_list
@@ -530,10 +560,12 @@ module DEBUGGER__
         @bps.each{|key, bp| bp.disable}
         @bps.clear
       else
-        if bp = @bps[key = @bps.keys[arg]]
-          bp.disable
-          @bps.delete key
-          return [arg, bp]
+        del_bp = nil
+        iterate_bps{|key, bp, i| del_bp = bp if i == arg}
+        if del_bp
+          del_bp.disable
+          @bps.delete del_bp.key
+          return [arg, del_bp]
         end
       end
     end
@@ -541,7 +573,10 @@ module DEBUGGER__
     def repl_add_breakpoint arg
       arg.strip!
 
-      if /(.+?)\s+if\s+(.+)\z/ =~ arg
+      case arg
+      when /\Aif\s+(.+)\z/
+        cond = $1
+      when /(.+?)\s+if\s+(.+)\z/
         sig = $1
         cond = $2
       else
@@ -555,9 +590,16 @@ module DEBUGGER__
         add_line_breakpoint $1, $2.to_i, cond
       when /\A(.+)[\.\#](.+)\z/
         add_method_breakpoint arg, cond
+      when nil
+        add_check_breakpoint cond
       else
         raise "unknown breakpoint format: #{arg}"
       end
+    end
+
+    def add_check_breakpoint expr
+      bp = CheckBreakpoint.new(expr)
+      @bps[bp.key] = bp
     end
 
     def break? file, line
@@ -624,7 +666,6 @@ module DEBUGGER__
       founds.each{|rbp|
         @reserved_bps.delete rbp
       }
-      p @reserved_bps
     end
 
     # configuration
