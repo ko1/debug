@@ -12,8 +12,14 @@ opt = OptionParser.new do |o|
 
   o.separator 'Debug console mode:'
   o.on('-n', '--no-stop', 'Do not stop at the beggining of the script.') do
-    conifg[:no_stop]
+    config[:no_stop] = true
   end
+
+  o.on('-e [COMMAND]', 'execute debug command at the beggining of the script.') do |cmd|
+    config[:cmds] ||= []
+    config[:cmds] << cmd
+  end
+
   o.on('-O', '--open', 'Start debuggee with opning the debagger port.',
                        'If TCP/IP options are not given,',
                        'a UNIX domain socket will be used.') do
@@ -68,6 +74,15 @@ when :start
   else
     start_mode = "debug/run"
   end
+
+  if cmds = config[:cmds]
+    ENV['RUBY_DEBUG_PRE_COMMANDS'] = cmds.join(',,')
+  end
+
+  if config[:no_stop]
+    ENV['RUBY_DEBUG_STOP_ON_LOAD'] = '0'
+  end
+
   exec("#{RbConfig.ruby}", "-I#{File.expand_path(File.dirname(__dir__))}/lib", "-r" + start_mode, *ARGV)
 when :attach
   require_relative "../lib/debug/client"

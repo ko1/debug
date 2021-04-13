@@ -266,6 +266,8 @@ $ rdbg --attach hostname 12345
 * `Enter` repeats the last command (useful when repeating `step`s).
 * `Ctrl-D` is equal to `quit` command.
 * [debug command compare sheet - Google Sheets](https://docs.google.com/spreadsheets/d/1TlmmUDsvwK4sSIyoMv-io52BUUz__R5wpu-ComXlsw0/edit?usp=sharing)
+* `./.rdbgrc.rb` or `~/.rdbgrc.rb` will be evaluate as a Ruby script if available at initialize timing.
+* `./.rdbgrc` or `~/.rdbgrc` will be evaluate as a set of commands if available at initialize timing.
 
 ### Control flow
 

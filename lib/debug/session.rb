@@ -52,6 +52,7 @@ module DEBUGGER__
       @q_evt = Queue.new
       @displays = []
       @tc = nil
+      @initial_commands = []
 
       @tp_load_script = TracePoint.new(:script_compiled){|tp|
         ThreadClient.current.on_load tp.instruction_sequence, tp.eval_script
@@ -98,6 +99,10 @@ module DEBUGGER__
       setup_threads
     end
 
+    def initial_commands cmds
+      @initial_commands = cmds
+    end
+
     def source path
       @sr.get(path)
     end
@@ -123,7 +128,11 @@ module DEBUGGER__
     end
 
     def wait_command
-      line = @ui.readline
+      if @initial_commands.empty?
+        line = @ui.readline
+      else
+        line = @initial_commands.shift.strip
+      end
 
       if line.empty?
         if @repl_prev_line
@@ -777,7 +786,25 @@ module DEBUGGER__
         ::DEBUGGER__.add_line_breakpoint __FILE__, __LINE__ + 1
         def bp; nil; end
       end
+
+      load_rc
     end
+  end
+
+  def self.load_rc
+    ['./rdbgrc.rb', File.expand_path('~/.rdbgrc.rb')].each{|path|
+      if File.file? path
+        load path
+        break
+      end
+    }
+
+    ['./.rdbgrc', File.expand_path('~/.rdbgrc')].each{|path|
+      if File.file? path
+        ::DEBUGGER__::SESSION.initial_commands File.readlines(path)
+        break
+      end
+    }
   end
 
   def self.parse_help
