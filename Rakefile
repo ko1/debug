@@ -8,3 +8,11 @@ Rake::TestTask.new(:test) do |t|
 end
 
 task :default => :test
+
+file 'README.md' => ['lib/debug/session.rb', 'exe/rdbg', 'misc/README.md.erb'] do
+  require_relative 'lib/debug/session'
+  require 'erb'
+  File.write 'README.md', ERB.new(File.read('misc/README.md.erb')).result
+  puts 'README.md is updated.'
+end
+

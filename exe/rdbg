@@ -14,9 +14,9 @@ opt = OptionParser.new do |o|
   o.on('-n', '--no-stop', 'Do not stop at the beggining of the script.') do
     conifg[:no_stop]
   end
-  o.on('-R', '--remote', 'Start debuggee with the remote debugger attachable.',
-                         'If TCP/IP options are not given,',
-                         'a UNIX domain socket will be used.') do
+  o.on('-O', '--open', 'Start debuggee with opning the debagger port.',
+                       'If TCP/IP options are not given,',
+                       'a UNIX domain socket will be used.') do
     config[:remote] = true
   end
   o.on('--port=[PORT]', 'Listening TCP/IP port') do |port|
@@ -30,9 +30,10 @@ opt = OptionParser.new do |o|
   o.separator '  Debug console mode runs Ruby program with the debug console.'
   o.separator ''
   o.separator "  #{$0} target.rb foo bar                 starts like 'ruby target.rb foo bar'."
-  o.separator "  #{$0} -- -R foo -e bar                  starts like 'ruby -r foo -e bar'."
-  o.separator "  #{$0} -R target.rb foo bar              accepts attaching with UNIX domain socket."
-  o.separator "  #{$0} -R --port 1234 target.rb foo bar  accepts attaching with TCP/IP localhost:1234."
+  o.separator "  #{$0} -- -r foo -e bar                  starts like 'ruby -r foo -e bar'."
+  o.separator "  #{$0} -O target.rb foo bar              starts and accepts attaching with UNIX domain socket."
+  o.separator "  #{$0} -O --port 1234 target.rb foo bar  starts accepts attaching with TCP/IP localhost:1234."
+  o.separator "  #{$0} -O --port 1234 -- -r foo -e bar   starts accepts attaching with TCP/IP localhost:1234."
 
   o.separator ''
   o.separator 'Attach mode:'
