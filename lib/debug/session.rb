@@ -835,12 +835,6 @@ module DEBUGGER__
       end
     }
 
-    # debug commands
-    if ::DEBUGGER__::CONFIG[:commands]
-      cmds = ::DEBUGGER__::CONFIG[:commands].split(';;')
-      ::DEBUGGER__::SESSION.add_initial_commands cmds
-    end
-
     # debug commands file
     [::DEBUGGER__::CONFIG[:init_script],
      './.rdbgrc',
@@ -852,6 +846,12 @@ module DEBUGGER__
         break
       end
     }
+
+    # given debug commands
+    if ::DEBUGGER__::CONFIG[:commands]
+      cmds = ::DEBUGGER__::CONFIG[:commands].split(';;')
+      ::DEBUGGER__::SESSION.add_initial_commands cmds
+    end
   end
 
   def self.parse_help
