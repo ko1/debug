@@ -6,6 +6,7 @@ require 'iseq_collector'
 require_relative 'source_repository'
 require_relative 'breakpoint'
 require_relative 'thread_client'
+require_relative 'config'
 
 class RubyVM::InstructionSequence
   def traceable_lines_norec lines
@@ -99,8 +100,11 @@ module DEBUGGER__
       setup_threads
     end
 
-    def initial_commands cmds
-      @initial_commands = cmds
+    def add_initial_commands cmds
+      cmds.each{|c|
+        c.gsub('#.*', '').strip!
+        @initial_commands << c unless c.empty?
+      }
     end
 
     def source path
@@ -325,8 +329,9 @@ module DEBUGGER__
       when 'trace'
         case arg
         when 'on'
+          dir = __dir__
           @tracer ||= TracePoint.new(){|tp|
-            next if tp.path == __FILE__
+            next if File.dirname(tp.path) == dir
             next if tp.path == '<internal:trace_point>'
             # next if tp.event != :line
             @ui.puts pretty_tp(tp)
@@ -334,10 +339,9 @@ module DEBUGGER__
           @tracer.enable
         when 'off'
           @tracer && @tracer.disable
-        else
-          enabled = (@tracer && @tracer.enabled?) ? true : false
-          @ui.puts "Trace #{enabled ? 'on' : 'off'}"
         end
+        enabled = (@tracer && @tracer.enabled?) ? true : false
+        @ui.puts "Trace #{enabled ? 'on' : 'off'}"
         return :retry
 
       ### Frame control
@@ -763,8 +767,29 @@ module DEBUGGER__
     end
   end
 
+  # String for requring location
+  # nil for -r
+  def self.require_location
+    locs = caller_locations
+    dir_prefix = /#{__dir__}/
+
+    locs.each do |loc|
+      case loc.absolute_path
+      when dir_prefix
+      when %r{rubygems/core_ext/kernel_require\.rb}
+      else
+        return loc
+      end
+    end
+    nil
+  end
+
   def self.console
-    require_relative 'run'
+    initialize_session UI_Console.new
+
+    @prev_handler = trap(:SIGINT){
+      ThreadClient.current.on_trap :SIGINT
+    }
   end
 
   def self.add_line_breakpoint file, line, if: if_not_given =  true, oneshot: true
@@ -780,11 +805,22 @@ module DEBUGGER__
       ::DEBUGGER__.const_set(:SESSION, Session.new(ui))
 
       # default breakpoints
+
       # ::DEBUGGER__.add_catch_breakpoint 'RuntimeError'
 
       Binding.module_eval do
         ::DEBUGGER__.add_line_breakpoint __FILE__, __LINE__ + 1
         def bp; nil; end
+      end
+
+      if ::DEBUGGER__::CONFIG[:nonstop] != '1'
+        if loc = ::DEBUGGER__.require_location
+          # require 'debug/console' or 'debug'
+          add_line_breakpoint loc.absolute_path, loc.lineno + 1, oneshot: true
+        else
+          # -r
+          add_line_breakpoint $0, 1, oneshot: true
+        end
       end
 
       load_rc
@@ -799,9 +835,20 @@ module DEBUGGER__
       end
     }
 
-    ['./.rdbgrc', File.expand_path('~/.rdbgrc')].each{|path|
+    # debug commands
+    if ::DEBUGGER__::CONFIG[:commands]
+      cmds = ::DEBUGGER__::CONFIG[:commands].split(';;')
+      ::DEBUGGER__::SESSION.add_initial_commands cmds
+    end
+
+    # debug commands file
+    [::DEBUGGER__::CONFIG[:init_script],
+     './.rdbgrc',
+     File.expand_path('~/.rdbgrc')].each{|path|
+      next unless path
+
       if File.file? path
-        ::DEBUGGER__::SESSION.initial_commands File.readlines(path)
+        ::DEBUGGER__::SESSION.add_initial_commands File.readlines(path)
         break
       end
     }
@@ -848,5 +895,6 @@ module DEBUGGER__
     }
     r.join("\n")
   end
-end
 
+  CONFIG = ::DEBUGGER__.parse_argv(ENV['RUBY_DEBUG_OPT'])
+end

@@ -122,9 +122,9 @@ module DEBUGGER__
 
   class UI_TcpServer < UI_ServerBase
     def initialize host: nil, port: nil
-      @host = host || ENV['RUBY_DEBUG_HOST'] || 'localhost'
+      @host = host || ::DEBUGGER__::CONFIG[:host] || 'localhost'
       @port = port || begin
-        port_str = ENV['RUBY_DEBUG_PORT'] || raise("Specify listening port by RUBY_DEBUG_PORT environment variable.")
+        port_str = ::DEBUGGER__::CONFIG[:port] || raise("Specify listening port by RUBY_DEBUG_PORT environment variable.")
         if /\A\d+\z/ !~ port_str
           raise "Specify digits for port number"
         else
@@ -151,14 +151,14 @@ module DEBUGGER__
   end
 
   class UI_UnixDomainServer < UI_ServerBase
-    def initialize base_dir: nil
-      @base_dir = base_dir || DEBUGGER__.unix_domain_socket_basedir
+    def initialize sock_dir: nil
+      @sock_dir = sock_dir || DEBUGGER__.unix_domain_socket_dir
 
       super()
     end
 
     def accept
-      @file = DEBUGGER__.create_unix_domain_socket_name(@base_dir)
+      @file = DEBUGGER__.create_unix_domain_socket_name(@sock_dir)
 
       $stderr.puts "Debugger can attach via UNIX domain socket (#{@file})"
       Socket.unix_server_loop @file do |sock, addr|
@@ -168,11 +168,11 @@ module DEBUGGER__
     end
   end
 
-  def self.open host: nil, port: ENV['RUBY_DEBUG_PORT'], base_dir: nil
+  def self.open host: nil, port: ::DEBUGGER__::CONFIG[:port], sock_dir: nil
     if port
       open_tcp host: host, port: port
     else
-      open_unix base_dir: base_dir
+      open_unix sock_dir: sock_dir
     end
   end
 
@@ -180,7 +180,7 @@ module DEBUGGER__
     initialize_session UI_TcpServer.new(host: host, port: port)
   end
 
-  def self.open_unix base_dir: nil
-    initialize_session UI_UnixDomainServer.new(base_dir: base_dir)
+  def self.open_unix sock_dir: nil
+    initialize_session UI_UnixDomainServer.new(sock_dir: sock_dir)
   end
 end
