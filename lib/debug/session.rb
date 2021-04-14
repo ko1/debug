@@ -831,7 +831,6 @@ module DEBUGGER__
     ['./rdbgrc.rb', File.expand_path('~/.rdbgrc.rb')].each{|path|
       if File.file? path
         load path
-        break
       end
     }
 
@@ -843,7 +842,6 @@ module DEBUGGER__
 
       if File.file? path
         ::DEBUGGER__::SESSION.add_initial_commands File.readlines(path)
-        break
       end
     }
 
