@@ -6,13 +6,18 @@ module DEBUGGER__
   class UI_ServerBase
     def initialize
       @sock = nil
+      @accept_m = Mutex.new
+      @accept_cv = ConditionVariable.new
       @client_addr = nil
       @q_msg = Queue.new
       @q_ans = Queue.new
 
       @reader_thread = Thread.new do
         accept do |server|
-          @sock = server
+          @accept_m.synchronize{
+            @sock = server
+            @accept_cv.signal
+          }
           @q_msg = Queue.new
           @q_ans = Queue.new
 
@@ -43,7 +48,6 @@ module DEBUGGER__
       end
     end
 
-
     def setup_interrupt
       prev_handler = trap(:SIGINT) do
         # $stderr.puts "trapped SIGINT"
@@ -71,7 +75,16 @@ module DEBUGGER__
     class NoRemoteError < Exception; end
 
     def sock
-      yield @sock if @sock
+      until s = @sock
+        @accept_m.synchronize{
+          unless @sock
+            DEBUGGER__.message "wait for debuger connection..."
+            @accept_cv.wait(@accept_m)
+            DEBUGGER__.message "Connected." if @sock
+          end
+        }
+      end
+      yield s
     rescue Errno::EPIPE
       # ignore
     end
@@ -137,8 +150,7 @@ module DEBUGGER__
 
     def accept
       Socket.tcp_server_sockets @host, @port do |socks|
-        $stderr.puts "Debugger can attach via TCP/IP (#{socks.map{|e| e.local_address.inspect}})"
-
+        ::DEBUGGER__.message "Debugger can attach via TCP/IP (#{socks.map{|e| e.local_address.inspect}})"
         Socket.accept_loop(socks) do |sock, client|
           yield sock
         end
@@ -160,7 +172,7 @@ module DEBUGGER__
     def accept
       @file = DEBUGGER__.create_unix_domain_socket_name(@sock_dir)
 
-      $stderr.puts "Debugger can attach via UNIX domain socket (#{@file})"
+      ::DEBUGGER__.message "Debugger can attach via UNIX domain socket (#{@file})"
       Socket.unix_server_loop @file do |sock, addr|
         @client_addr = addr
         yield sock
@@ -182,5 +194,9 @@ module DEBUGGER__
 
   def self.open_unix sock_dir: nil
     initialize_session UI_UnixDomainServer.new(sock_dir: sock_dir)
+  end
+
+  def self.message msg
+    $stderr.puts "DEBUGGER: #{msg}"
   end
 end
