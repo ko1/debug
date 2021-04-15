@@ -219,7 +219,7 @@ module DEBUGGER__
 
     def parameters_info b, vars
       vars.map{|var|
-        "#{var}=#{short_inspect(b.eval(var.to_s))}"
+        "#{var}=#{short_inspect(b.local_variable_get(var))}"
       }.join(', ')
     end
 
