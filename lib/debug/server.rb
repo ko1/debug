@@ -84,6 +84,7 @@ module DEBUGGER__
           end
         }
       end
+
       yield s
     rescue Errno::EPIPE
       # ignore
@@ -152,6 +153,7 @@ module DEBUGGER__
       Socket.tcp_server_sockets @host, @port do |socks|
         ::DEBUGGER__.message "Debugger can attach via TCP/IP (#{socks.map{|e| e.local_address.inspect}})"
         Socket.accept_loop(socks) do |sock, client|
+          @client_addr = client
           yield sock
         end
       end
@@ -173,8 +175,8 @@ module DEBUGGER__
       @file = DEBUGGER__.create_unix_domain_socket_name(@sock_dir)
 
       ::DEBUGGER__.message "Debugger can attach via UNIX domain socket (#{@file})"
-      Socket.unix_server_loop @file do |sock, addr|
-        @client_addr = addr
+      Socket.unix_server_loop @file do |sock, client|
+        @client_addr = client
         yield sock
       end
     end

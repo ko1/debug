@@ -176,9 +176,9 @@ module DEBUGGER__
       when 'c', 'continue'
         @tc << :continue
 
-      # * `q[uit]` or `Ctrl-D`
+      # * `q[uit]` or exit or `Ctrl-D`
       #   * Finish debugger (with the debuggee process on non-remote debugging).
-      when 'q', 'quit'
+      when 'q', 'quit', 'exit'
         if ask 'Really quit?'
           @ui.quit arg.to_i
           @tc << :continue
@@ -186,10 +186,10 @@ module DEBUGGER__
           return :retry
         end
 
-      # * `kill`
+      # * `kill` or q[uit]!`
       #   * Stop the debuggee process.
-      when 'kill'
-        if ask 'Really quit?'
+      when 'kill', 'quit!', 'q!'
+        if ask 'Really kill?'
           exit! (arg || 1).to_i
         else
           return :retry
