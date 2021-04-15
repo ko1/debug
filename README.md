@@ -266,8 +266,6 @@ $ rdbg --attach hostname 12345
 * `Enter` repeats the last command (useful when repeating `step`s).
 * `Ctrl-D` is equal to `quit` command.
 * [debug command compare sheet - Google Sheets](https://docs.google.com/spreadsheets/d/1TlmmUDsvwK4sSIyoMv-io52BUUz__R5wpu-ComXlsw0/edit?usp=sharing)
-* `./.rdbgrc.rb` or `~/.rdbgrc.rb` will be evaluate as a Ruby script if available at initialize timing.
-* `./.rdbgrc` or `~/.rdbgrc` will be evaluate as a set of commands if available at initialize timing.
 
 ### Control flow
 
@@ -279,9 +277,9 @@ $ rdbg --attach hostname 12345
   * Finish this frame. Resume the program until the current frame is finished.
 * `c[ontinue]`
   * Resume the program.
-* `q[uit]` or `Ctrl-D`
+* `q[uit]` or exit or `Ctrl-D`
   * Finish debugger (with the debuggee process on non-remote debugging).
-* `kill`
+* `kill` or q[uit]!`
   * Stop the debuggee process.
 
 ### Breakpoint
@@ -367,7 +365,8 @@ $ rdbg --attach hostname 12345
 exe/rdbg [options] -- [debuggee options]
 
 Debug console mode:
-    -n, --no-stop                    Do not stop at the beggining of the script.
+    -n, --nonstop                    Do not stop at the beggining of the script.
+    -e [COMMAND]                     execute debug command at the beggining of the script.
     -O, --open                       Start debuggee with opning the debagger port.
                                      If TCP/IP options are not given,
                                      a UNIX domain socket will be used.
