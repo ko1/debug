@@ -219,8 +219,12 @@ module DEBUGGER__
 
     def parameters_info b, vars
       vars.map{|var|
-        "#{var}=#{short_inspect(b.local_variable_get(var))}"
-      }.join(', ')
+        begin
+          "#{var}=#{short_inspect(b.local_variable_get(var))}"
+        rescue NameError, TypeError
+          nil
+        end
+      }.compact.join(', ')
     end
 
     def klass_sig frame
@@ -258,13 +262,12 @@ module DEBUGGER__
       if b && (iseq = frame.iseq)
         if iseq.type == :block
           if (argc = iseq.argc) > 0
-            args = parameters_info b, iseq.locals[0...iseq.argc]
+            args = parameters_info b, iseq.locals[0...argc]
             buff << " {|#{args}|}"
           end
         else
-          callee = b.eval('__callee__')
-          if callee && (m = frame.self.method(callee))
-            args = parameters_info b, m.parameters.map{|type, v| v}
+          if (callee = b.eval('__callee__')) && (argc = iseq.argc) > 0
+            args = parameters_info b, iseq.locals[0...argc]
             ksig = klass_sig frame
             buff << " #{ksig}#{callee}(#{args})"
           end
