@@ -133,4 +133,45 @@ module DEBUGGER__
       "check bp: #{@expr}"
     end
   end
+
+  class WatchExprBreakpoint < Breakpoint
+    def initialize expr, current
+      @key = @expr = expr.freeze
+      @current = current
+      super()
+    end
+
+    def watch_eval b
+      result = b.eval(@expr)
+      if result != @current
+        begin
+          @prev = @curret
+          @current = result
+          suspend
+        ensure
+          remove_instance_variable(:@prev)
+        end
+      end
+    rescue Exception => e
+      false
+    end
+
+    $i = 0
+    def setup
+      @tp = TracePoint.new(:line, :return, :b_return){|tp|
+        next if tp.path.start_with? __dir__
+        next if tp.path.start_with? '<internal:'
+
+        watch_eval(tp.binding)
+      }
+    end
+
+    def to_s
+      if defined? @prev
+        "watch bp: #{@expr} = #{@prev} -> #{@current}"
+      else
+        "watch bp: #{@expr} = #{@current}"
+      end
+    end
+  end
 end

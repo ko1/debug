@@ -303,6 +303,10 @@ You can control debugger's behavior with environment variables:
 * `Ctrl-D` is equal to `quit` command.
 * [debug command compare sheet - Google Sheets](https://docs.google.com/spreadsheets/d/1TlmmUDsvwK4sSIyoMv-io52BUUz__R5wpu-ComXlsw0/edit?usp=sharing)
 
+You can use the following debug commands. Each command should be written in 1 line.
+The `[...]` notation means this part can be elimiante. For example, `s[tep]` means `s` or `step` are valid command. `ste` is not valid.
+The `<...>` notation means the argument.
+
 ### Control flow
 
 * `s[tep]`
@@ -315,7 +319,7 @@ You can control debugger's behavior with environment variables:
   * Resume the program.
 * `q[uit]` or exit or `Ctrl-D`
   * Finish debugger (with the debuggee process on non-remote debugging).
-* `kill` or q[uit]!`
+* `kill` or `q[uit]!`
   * Stop the debuggee process.
 
 ### Breakpoint
@@ -333,6 +337,9 @@ You can control debugger's behavior with environment variables:
   * Note that this feature is super slow.
 * `catch <Error>`
   * Set breakpoint on raising `<Error>`.
+* `watch <expr>`
+  * Stop the execution when the result of <expr> is changed.
+  * Note that this feature is super slow.
 * `del[ete]`
   * delete all breakpoints.
 * `del[ete] <bpnum>`

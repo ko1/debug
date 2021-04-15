@@ -193,14 +193,18 @@ module DEBUGGER__
 
     def frame_eval src, failed_value: nil, re_raise: false
       begin
+        @success_last_eval = false
+
         b = current_frame.binding
-        if b
+        result = if b
           b.eval(src)
         else
           frame_self = current_frame.self
           frame_self.instance_eval(src)
-          # puts "eval is not supported on this frame."
         end
+        @success_last_eval = true
+        result
+
       rescue Exception => e
         return failed_value if failed_value
 
@@ -336,6 +340,7 @@ module DEBUGGER__
         when :eval
           eval_type, eval_src = *args
           result = frame_eval(eval_src)
+          result_type = nil
 
           case eval_type
           when :p
@@ -351,10 +356,19 @@ module DEBUGGER__
               puts "#{i}: #{src} = #{frame_eval(src, failed_value: :error).inspect}"
             }
             result = :ok
+          when :watch
+            if @success_last_eval
+              puts "#{eval_src} = #{result}"
+              result = WatchExprBreakpoint.new(eval_src, result)
+              result_type = :watch
+            else
+              result = nil
+            end
           else
-            raise "unknown error option: #{args.inspec}"
+            raise "unknown error option: #{args.inspect}"
           end
-          event! :result, result
+
+          event! :result, result_type, result
         when :frame
           type, arg = *args
           case type

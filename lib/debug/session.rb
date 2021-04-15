@@ -89,6 +89,15 @@ module DEBUGGER__
               tc << [:eval, :display, @displays]
             end
           when :result
+            case ev_args.first
+            when :watch
+              bp = ev_args[1]
+              @bps[bp.key] = bp
+              show_bps bp
+            else
+              # ignore
+            end
+
             wait_command_loop tc
           end
         end
@@ -186,7 +195,7 @@ module DEBUGGER__
           return :retry
         end
 
-      # * `kill` or q[uit]!`
+      # * `kill` or `q[uit]!`
       #   * Stop the debuggee process.
       when 'kill', 'quit!', 'q!'
         if ask 'Really kill?'
@@ -250,6 +259,17 @@ module DEBUGGER__
           show_bps
         end
         return :retry
+
+      # * `watch <expr>`
+      #   * Stop the execution when the result of <expr> is changed.
+      #   * Note that this feature is super slow.
+      when 'wat', 'watch'
+        if arg
+          @tc << [:eval, :watch, arg]
+        else
+          show_bps
+          return :retry
+        end
 
       # * `del[ete]`
       #   * delete all breakpoints.
