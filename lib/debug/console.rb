@@ -33,7 +33,27 @@ module DEBUGGER__
 
     begin
       require 'readline'
+
+      def readline_setup
+        Readline.completion_proc = proc{|given|
+          buff = Readline.line_buffer
+          Readline.completion_append_character= ' '
+
+          if /\s/ =~ buff # second parameters
+            given = File.expand_path(given + 'a').sub(/a\z/, '')
+            files = Dir.glob(given + '*')
+            if files.size == 1 && File.directory?(files.first)
+              Readline.completion_append_character= '/'
+            end
+            files
+          else
+            DEBUGGER__.commands.grep(/\A#{given}/)
+          end
+        }
+      end
+
       def readline_body
+        readline_setup
         Readline.readline("\n(rdbg) ", true)
       end
     rescue LoadError

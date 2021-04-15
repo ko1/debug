@@ -875,6 +875,8 @@ module DEBUGGER__
   def self.parse_help
     helps = Hash.new{|h, k| h[k] = []}
     desc = cat = nil
+    cmds = []
+
     File.read(__FILE__).each_line do |line|
       case line
       when /\A\s*### (.+)/
@@ -886,6 +888,7 @@ module DEBUGGER__
         ws = $1.split(/,\s*/).map{|e| e.gsub('\'', '')}
         helps[cat] << [ws, desc]
         desc = nil
+        cmds.concat ws
       when /\A\s+# (\s*\*.+)/
         if desc
           desc << "\n" + $1
@@ -895,10 +898,15 @@ module DEBUGGER__
       end
     end
     @helps = helps
+    @commands = cmds
   end
 
   def self.helps
     (defined?(@helps) && @helps) || parse_help
+  end
+
+  def self.commands
+    (defined?(@commands) && @commands) || (parse_help; @commands)
   end
 
   def self.help
