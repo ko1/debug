@@ -311,7 +311,7 @@ $ rdbg --attach hostname 12345
 * `i[nfo]`
   * Show information about the current frame (local variables)
   * It includes `self` as `%self` and a return value as `%return`.
-* `i[nfo] <expr>
+* `i[nfo] <expr>`
   * Show information about the result of <expr>.
 * `display`
   * Show display setting.
@@ -346,7 +346,7 @@ $ rdbg --attach hostname 12345
 
 ### Thread control
 
-* `th[read]
+* `th[read]`
   * Show all threads.
 * `th[read] <thnum>`
   * Switch thread specified by `<thnum>`.
