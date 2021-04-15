@@ -142,8 +142,8 @@ module DEBUGGER__
     end
 
     def file_lines path
-      if (src = SESSION.source(path)) && src[0]
-        src[0].lines
+      if (src_lines = SESSION.source(path))
+        src_lines
       elsif File.exist?(path)
         File.readlines(path)
       end

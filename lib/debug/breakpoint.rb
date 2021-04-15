@@ -145,7 +145,7 @@ module DEBUGGER__
       result = b.eval(@expr)
       if result != @current
         begin
-          @prev = @curret
+          @prev = @current
           @current = result
           suspend
         ensure

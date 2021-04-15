@@ -5,12 +5,15 @@ module DEBUGGER__
     end
 
     def add iseq, src
-      begin
-        src = File.read(iseq.path)
-      rescue
-        src = nil
-      end unless src
-      @files[iseq.path] = [src, iseq]
+      if src
+      else
+        begin
+          src = File.read(iseq.path)
+          @files[iseq.path] = src.lines
+        rescue
+          src = nil
+        end
+      end
     end
 
     def get path
