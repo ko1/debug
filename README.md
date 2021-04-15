@@ -143,9 +143,7 @@ $ rdbg  ~/src/rb/target.rb
 
 ```
 # (1) Use `rdbg` command
-$ rdbg -O target.rb
-# or
-$ rdbg --open target.rb
+$ rdbg --open target.rb # or rdbg -O target.rb for shorthand
 Debugger can attach via UNIX domain socket (/home/ko1/.ruby-debug-sock/ruby-debug-ko1-5042)
 ...
 
@@ -173,11 +171,18 @@ Debugger can attach via UNIX domain socket (/home/ko1/.ruby-debug-sock/ruby-debu
 ```
 
 It runs target.rb and accept debugger connection within UNIX domain socket.
+The debuggee process waits for debugger connection at the beggining of `target.rb` like that:
+
+```
+$ rdbg -O ~/src/rb/target.rb
+DEBUGGER: Debugger can attach via UNIX domain socket (/home/ko1/.ruby-debug-sock/ruby-debug-ko1-29828)
+DEBUGGER: wait for debuger connection...
+```
 
 You can attach the program with the following command:
 
 ```
-$ rdbg --attach
+$ rdbg --attach # or rdbg -A for shorthand
 
 [1, 4] in /home/ko1/src/rb/target.rb
       1| (1..).each do |i|
@@ -188,11 +193,21 @@ $ rdbg --attach
     #1  /home/ko1/src/rb/target.rb:2:in `block in <main>' {|i=17|}
     #2  [C] /home/ko1/src/rb/target.rb:1:in `each'
     # and 1 frames (use `bt' command for all frames)
+
+(rdb)
 ```
 
-The debugee process will be suspended and wait for the debug command from the remote debugger.
+and you can input any debug commands. `c` (or `continue`) continues the debuggee process.
 
-If you are running multiple debuggee processes, this command shows the selection like that:
+You can detach the debugger from the debugger process with `quit` command.
+You can re-connect to the debuggee process by `rdbg -A` command again, and the debuggee process suspends the execution (and debugger can input any debug commands).
+
+If you don't want to stop the debuggee process at the beggining of debuggee process (`target.rb`), you can use the fowllowings to specify "non-stop" option.
+
+* Use `rdbg -n` option
+* Set the environment variable `RUBY_DEBUG_NONSTOP=1`
+
+If you are running multiple debuggee processes, the attach command (`rdbg -A`) shows the options like that:
 
 ```
 $ rdbg --attach
@@ -211,6 +226,7 @@ The socket file is located at
 * `RUBY_DEBUG_SOCK_DIR` environment variable if available.
 * `XDG_RUNTIME_DIR` environment variable if available.
 * `$HOME/ruby-debug-sock` if `$HOME` is available.
+
 
 ### Remote debug (2) TCP/IP
 
@@ -260,6 +276,26 @@ To attach it, specify the port number (and hostname if needed).
 $ rdbg --attach 12345
 $ rdbg --attach hostname 12345
 ```
+
+### Initial scripts
+
+If there are `.rdbgrc` files are there at the current directory and the home directory, files are loaded as initial scripts.
+Initial scripts are evaluted at the first suspend timing (generally, it is the beggining of the target script).
+`RUBY_DEBUG_INIT_SCRIPT` environment variable can specify the initial script file.
+
+If there are `.rdbgrc.rb` files at the current directory and the home directory, files are loaded at as a ruby script at the initializing timing.
+
+### Environment variables
+
+You can control debugger's behavior with environment variables:
+
+* `RUBY_DEBUG_NONSTOP`: 1 for nonstop at the beggining of program.
+* `RUBY_DEBUG_INIT_SCRIPT`: Initial script path loaded at the first stop.
+* `RUBY_DEBUG_COMMANDS`: Debug commands invoked at the first stop. Commands should be separated by ';;'.
+* Remote debugging
+  * `RUBY_DEBUG_PORT`: TCP/IP remote debugging: port to open.
+  * `RUBY_DEBUG_HOST`: TCP/IP remote debugging: host (localhost if not given) to open.
+  * `RUBY_DEBUG_SOCK_DIR`: UNIX Domain Socket remote debugging: socket directory to open.
 
 ## Debug command on the debug console
 
