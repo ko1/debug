@@ -24,19 +24,17 @@ module DEBUGGER__
           setup_interrupt do
             pause
 
-            begin
-              while line = @sock.gets
-                case line
-                when /\Apause/
-                  pause
-                when /\Acommand ?(.+)/
-                  @q_msg << $1
-                when /\Aanswer (.*)/
-                  @q_ans << $1
-                else
-                  STDERR.puts "unsupported: #{line}"
-                  exit!
-                end
+            while line = @sock.gets
+              case line
+              when /\Apause/
+                pause
+              when /\Acommand ?(.+)/
+                @q_msg << $1
+              when /\Aanswer (.*)/
+                @q_ans << $1
+              else
+                STDERR.puts "unsupported: #{line}"
+                exit!
               end
             end
           end
@@ -74,15 +72,21 @@ module DEBUGGER__
 
     class NoRemoteError < Exception; end
 
-    def sock
-      until s = @sock
-        @accept_m.synchronize{
-          unless @sock
-            DEBUGGER__.message "wait for debuger connection..."
-            @accept_cv.wait(@accept_m)
-            DEBUGGER__.message "Connected." if @sock
-          end
-        }
+    def sock skip: false
+      if s = @sock         # already connection
+        # ok
+      elsif skip == true   # skip process
+        return yield($stdout)
+      else                 # wait for connection
+        until s = @sock
+          @accept_m.synchronize{
+            unless @sock
+              DEBUGGER__.message "wait for debuger connection..."
+              @accept_cv.wait(@accept_m)
+              DEBUGGER__.message "Connected." if @sock
+            end
+          }
+        end
       end
 
       yield s
@@ -107,7 +111,7 @@ module DEBUGGER__
         enum = [''].each
       end
 
-      sock do |s|
+      sock skip: true do |s|
         enum.each do |line|
           s.puts "out #{line.chomp}"
         end

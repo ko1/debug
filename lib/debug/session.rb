@@ -145,6 +145,7 @@ module DEBUGGER__
         line = @ui.readline
       else
         line = @initial_commands.shift.strip
+        @ui.puts "(rdbg:init) #{line}"
       end
 
       if line.empty?
