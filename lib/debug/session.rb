@@ -747,6 +747,8 @@ module DEBUGGER__
             nline = lines.bsearch{|l| line <= l}
             events = line_events[nline]
 
+            next if events == [:RUBY_EVENT_B_CALL]
+
             if !nearest
               nearest = NearestISeq.new(iseq, nline, events)
             else
