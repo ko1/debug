@@ -11,12 +11,21 @@ module DEBUGGER__
       @client_addr = nil
       @q_msg = Queue.new
       @q_ans = Queue.new
+      @unsent_messages = []
 
       @reader_thread = Thread.new do
         accept do |server|
+          DEBUGGER__.message "Connected."
+
           @accept_m.synchronize{
             @sock = server
             @accept_cv.signal
+
+            # flush unsent messages
+            @unsent_messages.each{|m|
+              @sock.puts m
+            }
+            @unsent_messages.clear
           }
           @q_msg = Queue.new
           @q_ans = Queue.new
@@ -39,6 +48,7 @@ module DEBUGGER__
             end
           end
         ensure
+          DEBUGGER__.message "Disconnected."
           @sock = nil
           @q_msg.close
           @q_ans.close
@@ -76,14 +86,13 @@ module DEBUGGER__
       if s = @sock         # already connection
         # ok
       elsif skip == true   # skip process
-        return yield($stdout)
+        return yield nil
       else                 # wait for connection
         until s = @sock
           @accept_m.synchronize{
             unless @sock
               DEBUGGER__.message "wait for debuger connection..."
               @accept_cv.wait(@accept_m)
-              DEBUGGER__.message "Connected." if @sock
             end
           }
         end
@@ -113,10 +122,11 @@ module DEBUGGER__
 
       sock skip: true do |s|
         enum.each do |line|
-          if s == $stdout
-            s.puts "#{line.chomp}"
+          msg = "out #{line.chomp}"
+          if s
+            s.puts msg
           else
-            s.puts "out #{line.chomp}"
+            @unsent_messages << msg
           end
         end
       end
