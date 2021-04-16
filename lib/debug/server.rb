@@ -113,7 +113,11 @@ module DEBUGGER__
 
       sock skip: true do |s|
         enum.each do |line|
-          s.puts "out #{line.chomp}"
+          if s == $stdout
+            s.puts "#{line.chomp}"
+          else
+            s.puts "out #{line.chomp}"
+          end
         end
       end
     end
