@@ -334,6 +334,63 @@ module DEBUGGER__
       end
     end
 
+    def eval_klass_name klass_name
+      frame_eval(klass_name, re_raise: true)
+    rescue Exception => e
+      p e
+      nil
+    end
+
+    def search_method klass, op, method_name
+      return unless klass
+
+      case op
+      when '.'
+        m = klass.method(method_name)
+      when '#'
+        m = klass.instance_method(method_name)
+      else
+        raise
+      end
+    rescue NameError => e
+      p e
+      nil
+    end
+
+    def add_breakpoint args
+      case args.first
+      when :method
+        klass_name, op, method_name, cond = args[1..]
+        klass = eval_klass_name(klass_name)
+        retried = false
+
+        begin
+          if m = search_method(klass, op, method_name)
+            bp = MethodBreakpoint.new(m, cond)
+          else
+            bp = MethodBreakpoint.new([klass_name, klass, op, method_name], cond)
+          end
+        rescue ArgumentError => e
+          raise if retried
+          retried = true
+
+          # maybe C method
+          klass.module_eval do
+            orig_name = method_name + '__orig__'
+            alias_method orig_name, method_name
+            define_method(method_name) do |*args|
+              send(orig_name, *args)
+            end
+          end
+          retry
+        end
+
+        event! :result, :method_breakpoint, bp
+      else
+        raise "unknown breakpoint: #{args}"
+      end
+    end
+
     def wait_next_action
       @mode = :wait_next_action
 
@@ -442,8 +499,11 @@ module DEBUGGER__
           end
 
           event! :result, nil
+
+        when :breakpoint
+          add_breakpoint args
         else
-          raise [ev, *args].inspect
+          raise [cmd, *args].inspect
         end
       end
 

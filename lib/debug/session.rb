@@ -94,6 +94,14 @@ module DEBUGGER__
               bp = ev_args[1]
               @bps[bp.key] = bp
               show_bps bp
+            when :method_breakpoint
+              bp = ev_args[1]
+              if bp
+                @bps[bp.key] = bp
+                show_bps bp
+              else
+                # can't make a bp
+              end
             else
               # ignore
             end
@@ -213,6 +221,8 @@ module DEBUGGER__
       #   * Set breakpoint on `<line>` at the current frame's file.
       # * `b[reak] <file>:<line>`
       #   * Set breakpoint on `<file>:<line>`.
+      # * `b[reak] <class>#<name>`
+      #    * Set breakpoint on <class>#<name>.
       # * `b[reak] ... if <expr>`
       #   * break if `<expr>` is true at specified location.
       # * `b[reak] if <expr>`
@@ -221,11 +231,17 @@ module DEBUGGER__
       when 'b', 'break'
         if arg == nil
           show_bps
+          return :retry
         else
-          bp = repl_add_breakpoint arg
-          show_bps bp if bp
+          case bp = repl_add_breakpoint(arg)
+          when :noretry
+          when nil
+            return :retry
+          else
+            show_bps bp
+            return :retry
+          end
         end
-        return :retry
 
       # skip
       when 'bv'
@@ -520,18 +536,18 @@ module DEBUGGER__
     end
 
     def iterate_bps
-      disabled_bps = []
+      deleted_bps = []
       i = 0
       @bps.each{|key, bp|
-        if bp.enabled?
+        if !bp.deleted?
           yield key, bp, i
           i += 1
         else
-          disabled_bps << bp
+          deleted_bps << bp
         end
       }
     ensure
-      disabled_bps.each{|bp| @bps.delete bp}
+      deleted_bps.each{|bp| @bps.delete bp}
     end
 
     def show_bps specific_bp = nil
@@ -591,13 +607,13 @@ module DEBUGGER__
     def delete_breakpoint arg = nil
       case arg
       when nil
-        @bps.each{|key, bp| bp.disable}
+        @bps.each{|key, bp| bp.delete}
         @bps.clear
       else
         del_bp = nil
         iterate_bps{|key, bp, i| del_bp = bp if i == arg}
         if del_bp
-          del_bp.disable
+          del_bp.delete
           @bps.delete del_bp.key
           return [arg, del_bp]
         end
@@ -622,8 +638,9 @@ module DEBUGGER__
         add_line_breakpoint @tc.location.path, $1.to_i, cond
       when /\A(.+):(\d+)\z/
         add_line_breakpoint $1, $2.to_i, cond
-      when /\A(.+)[\.\#](.+)\z/
-        add_method_breakpoint arg, cond
+      when /\A(.+)([\.\#])(.+)\z/
+        @tc << [:breakpoint, :method, $1, $2, $3, cond]
+        return :noretry
       when nil
         add_check_breakpoint cond
       else
@@ -783,10 +800,6 @@ module DEBUGGER__
         @reserved_bps << [file, line, cond, oneshot]
       end
       bp
-    end
-
-    def add_method_breakpoint signature
-      raise
     end
   end
 

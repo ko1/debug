@@ -3,6 +3,8 @@ module DEBUGGER__
     attr_reader :key
 
     def initialize
+      @deleted = false
+
       setup
       enable
     end
@@ -32,8 +34,25 @@ module DEBUGGER__
       @tp.enabled?
     end
 
+    def delete
+      disable
+      @deleted = true
+    end
+
+    def deleted?
+      @deleted
+    end
+
     def suspend
       ThreadClient.current.on_breakpoint @tp, self
+    end
+
+    def to_s
+      if @cond
+        " if #{@cond}"
+      else
+        ""
+      end
     end
   end
 
@@ -55,13 +74,13 @@ module DEBUGGER__
     def setup
       if !@cond
         @tp = TracePoint.new(@type) do |tp|
-          tp.disable if @oneshot
+          delete if @oneshot
           suspend
         end
       else
         @tp = TracePoint.new(@type) do |tp|
           next unless safe_eval tp.binding, @cond
-          tp.disable if @oneshot
+          delete if @oneshot
           suspend
         end
       end
@@ -79,12 +98,7 @@ module DEBUGGER__
     end
 
     def to_s
-      "line bp #{@iseq.absolute_path}:#{@line} (#{@type})" +
-        if @cond
-          "if #{@cond}"
-        else
-          ""
-        end
+      "line bp #{@iseq.absolute_path}:#{@line} (#{@type})" + super
     end
 
     def inspect
@@ -172,6 +186,48 @@ module DEBUGGER__
       else
         "watch bp: #{@expr} = #{@current}"
       end
+    end
+  end
+
+  class MethodBreakpoint < Breakpoint
+    def initialize m, c
+      if Array === m
+        @key = @pending_method = m
+        @method = nil
+      else
+        @key = @method = m
+      end
+
+      @cond = c
+      super()
+    end
+
+    def setup
+      if @cond
+        @tp = TracePoint.new(:call){|tp|
+          next unless safe_eval tp.binding, @cond
+          suspend
+        }
+      else
+        @tp = TracePoint.new(:call){|tp|
+          suspend
+        }
+      end
+    end
+
+    def enable
+      if @method
+        @tp.enable(target: @method)
+      end
+    end
+
+    def to_s
+      if @method
+        "method bp: #{@method}"
+      else
+        a, b, c, d = @pending_method
+        "method bp (pending): #{a}#{c}#{d}"
+      end + super
     end
   end
 end
