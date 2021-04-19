@@ -98,16 +98,36 @@ module DEBUGGER__
     
     ## control all
 
+    begin
+      TracePoint.new(:raise){}.enable(target_thread: Thread.current)
+      SUPPORT_TARGET_THREAD = true
+    rescue ArgumentError
+      SUPPORT_TARGET_THREAD = false
+    end
+
     def step_tp
       @step_tp.disable if @step_tp
-      @step_tp = TracePoint.new(:line, :b_return, :return){|tp|
-        next if SESSION.break? tp.path, tp.lineno
-        next if !yield
-        tp.disable
-        on_suspend tp.event, tp
-      }
 
-      @step_tp.enable(target_thread: Thread.current)
+      thread = Thread.current
+
+      if SUPPORT_TARGET_THREAD
+        @step_tp = TracePoint.new(:line, :b_return, :return){|tp|
+          next if SESSION.break? tp.path, tp.lineno
+          next if !yield
+          tp.disable
+          on_suspend tp.event, tp
+        }
+        @step_tp.enable(target_thread: thread)
+      else
+        @step_tp = TracePoint.new(:line, :b_return, :return){|tp|
+          next if thread != Thread.current
+          next if SESSION.break? tp.path, tp.lineno
+          next if !yield
+          tp.disable
+          on_suspend tp.event, tp
+        }
+        @step_tp.enable
+      end
     end
 
     FrameInfo = Struct.new(:location, :self, :binding, :iseq, :class, :has_return_value, :return_value)
