@@ -222,9 +222,9 @@ module DEBUGGER__
       # * `b[reak] <file>:<line>`
       #   * Set breakpoint on `<file>:<line>`.
       # * `b[reak] <class>#<name>`
-      #    * Set breakpoint on <class>#<name>.
+      #    * Set breakpoint on the method `<class>#<name>`.
       # * `b[reak] <expr>.<name>`
-      #    * Set breakpoint on <expr>.<name>.
+      #    * Set breakpoint on the method `<expr>.<name>`.
       # * `b[reak] ... if <expr>`
       #   * break if `<expr>` is true at specified location.
       # * `b[reak] if <expr>`
