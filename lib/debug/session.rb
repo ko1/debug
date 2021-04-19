@@ -223,6 +223,8 @@ module DEBUGGER__
       #   * Set breakpoint on `<file>:<line>`.
       # * `b[reak] <class>#<name>`
       #    * Set breakpoint on <class>#<name>.
+      # * `b[reak] <expr>.<name>`
+      #    * Set breakpoint on <expr>.<name>.
       # * `b[reak] ... if <expr>`
       #   * break if `<expr>` is true at specified location.
       # * `b[reak] if <expr>`
@@ -913,8 +915,8 @@ module DEBUGGER__
         end
       end
     end
-    @helps = helps
     @commands = cmds
+    @helps = helps
   end
 
   def self.helps
