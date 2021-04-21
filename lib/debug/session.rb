@@ -575,45 +575,6 @@ module DEBUGGER__
       nil
     end
 
-    def thread_list
-      thcs, unmanaged_ths = update_thread_list
-      thcs.each_with_index{|thc, i|
-        @ui.puts "#{@tc == thc ? "--> " : "    "}\##{i} #{thc}"
-      }
-
-      if !unmanaged_ths.empty?
-        @ui.puts "The following threads are not managed yet by the debugger:"
-        unmanaged_ths.each{|th|
-          @ui.puts "     " + th.to_s
-        }
-      end
-    end
-
-    def thread_switch n
-      if th = @th_clients.keys[n]
-        @tc = @th_clients[th]
-      end
-      thread_list
-    end
-
-    def update_thread_list
-      list = Thread.list
-      thcs = []
-      unmanaged = []
-
-      list.each{|th|
-        case
-        when th == Thread.current
-          # ignore
-        when @th_clients.has_key?(th)
-          thcs << @th_clients[th]
-        else
-          unmanaged << th
-        end
-      }
-      return thcs, unmanaged
-    end
-
     def delete_breakpoint arg = nil
       case arg
       when nil
@@ -660,13 +621,43 @@ module DEBUGGER__
       end
     end
 
-    def add_check_breakpoint expr
-      bp = CheckBreakpoint.new(expr)
-      @bps[bp.key] = bp
+    def thread_list
+      thcs, unmanaged_ths = update_thread_list
+      thcs.each_with_index{|thc, i|
+        @ui.puts "#{@tc == thc ? "--> " : "    "}\##{i} #{thc}"
+      }
+
+      if !unmanaged_ths.empty?
+        @ui.puts "The following threads are not managed yet by the debugger:"
+        unmanaged_ths.each{|th|
+          @ui.puts "     " + th.to_s
+        }
+      end
     end
 
-    def break? file, line
-      @bps.has_key? [file, line]
+    def thread_switch n
+      if th = @th_clients.keys[n]
+        @tc = @th_clients[th]
+      end
+      thread_list
+    end
+
+    def update_thread_list
+      list = Thread.list
+      thcs = []
+      unmanaged = []
+
+      list.each{|th|
+        case
+        when th == Thread.current
+          # ignore
+        when @th_clients.has_key?(th)
+          thcs << @th_clients[th]
+        else
+          unmanaged << th
+        end
+      }
+      return thcs, unmanaged
     end
 
     def setup_threads
@@ -723,18 +714,7 @@ module DEBUGGER__
       end
     end
 
-    # configuration
-
-    def add_catch_breakpoint arg
-      bp = CatchBreakpoint.new(arg)
-      @bps[bp.key] = bp
-    end
-
-    def resolve_path file
-      File.realpath(File.expand_path(file))
-    rescue Errno::ENOENT
-      file
-    end
+    # breakpoint management
 
     def add_breakpoint bp
       if @bps.has_key? bp.key
@@ -744,18 +724,49 @@ module DEBUGGER__
       end
     end
 
-    def pending_line_breakpoints
-      @bps.each do |key, bp|
-        if LineBreakpoint === bp && !bp.iseq
-          yield bp
-        end
-      end
+    def rehash_bps
+      bps = @bps.values
+      @bps.clear
+      bps.each{|bp|
+        add_breakpoint bp
+      }
+    end
+
+    def break? file, line
+      @bps.has_key? [file, line]
+    end
+
+    def add_catch_breakpoint arg
+      bp = CatchBreakpoint.new(arg)
+      add_braekpoint bp
+    end
+
+    def add_check_breakpoint expr
+      bp = CheckBreakpoint.new(expr)
+      add_breakpoint bp
+    end
+
+    def resolve_path file
+      File.realpath(File.expand_path(file))
+    rescue Errno::ENOENT
+      return file if file == '-e'
+      raise
     end
 
     def add_line_breakpoint file, line, cond = nil, oneshot: false
       file = resolve_path(file)
       bp = LineBreakpoint.new(file, line, cond, oneshot: oneshot)
       add_breakpoint bp
+    rescue Errno::ENOENT => e
+      @ui.puts e.message
+    end
+
+    def pending_line_breakpoints
+      @bps.find_all do |key, bp|
+        LineBreakpoint === bp && !bp.iseq
+      end.each do |key, bp|
+        yield bp
+      end
     end
   end
 

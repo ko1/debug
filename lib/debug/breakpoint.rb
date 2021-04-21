@@ -15,6 +15,7 @@ module DEBUGGER__
       puts "[EVAL ERROR]"
       puts "  expr: #{expr}"
       puts "  err: #{e} (#{e.class})"
+      puts "Error caused by #{self}."
       nil
     end
 
@@ -111,8 +112,8 @@ module DEBUGGER__
       @line = line
       @path = iseq.absolute_path
 
-      # TODO: update bps for key
-      @kye = [@path, @line].freeze
+      @key = [@path, @line].freeze
+      SESSION.rehash_bps
 
       setup
       enable
@@ -188,7 +189,9 @@ module DEBUGGER__
 
   class CatchBreakpoint < Breakpoint
     def initialize pat
-      @key = @pat = pat.freeze
+      @pat = pat.freeze
+      @key = [:catch, @pat].freeze
+
       super()
     end
 
@@ -254,7 +257,6 @@ module DEBUGGER__
       false
     end
 
-    $i = 0
     def setup
       @tp = TracePoint.new(:line, :return, :b_return){|tp|
         next if tp.path.start_with? __dir__
