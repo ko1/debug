@@ -328,7 +328,7 @@ The `<...>` notation means the argument.
   * Show all breakpoints.
 * `b[reak] <line>`
   * Set breakpoint on `<line>` at the current frame's file.
-* `b[reak] <file>:<line>`
+* `b[reak] <file>:<line>` or `<file> <line>`
   * Set breakpoint on `<file>:<line>`.
 * `b[reak] <class>#<name>`
    * Set breakpoint on the method `<class>#<name>`.

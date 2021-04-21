@@ -47,8 +47,12 @@ module DEBUGGER__
     def initialize ui
       @ui = ui
       @sr = SourceRepository.new
-      @reserved_bps = []
-      @bps = {} # [file, line] => LineBreakpoint || "Error" => CatchBreakpoint
+      @bps = {} # bp.key => bp
+                #   [file, line] => LineBreakpoint
+                #   "Error" => CatchBreakpoint
+                #   Method => MethodBreakpoint
+                #   [:watch, expr] => WatchExprBreakpoint
+                #   [:check, expr] => CheckBreakpoint
       @th_clients = {} # {Thread => ThreadClient}
       @q_evt = Queue.new
       @displays = []
@@ -219,7 +223,7 @@ module DEBUGGER__
       #   * Show all breakpoints.
       # * `b[reak] <line>`
       #   * Set breakpoint on `<line>` at the current frame's file.
-      # * `b[reak] <file>:<line>`
+      # * `b[reak] <file>:<line>` or `<file> <line>`
       #   * Set breakpoint on `<file>:<line>`.
       # * `b[reak] <class>#<name>`
       #    * Set breakpoint on the method `<class>#<name>`.
@@ -448,15 +452,7 @@ module DEBUGGER__
       #   * Show help for the given command.
       when 'h', 'help'
         if arg
-          DEBUGGER__.helps.each{|cat, cs|
-            cs.each{|ws, desc|
-              if ws.include? arg
-                @ui.puts desc
-                return :retry
-              end
-            }
-          }
-          @ui.puts "not found: #{arg}"
+          show_help arg
         else
           @ui.puts DEBUGGER__.help
         end
@@ -477,6 +473,18 @@ module DEBUGGER__
       @ui.puts "[REPL ERROR] #{e.inspect}"
       @ui.puts e.backtrace.map{|e| '  ' + e}
       return :retry
+    end
+
+    def show_help arg
+      DEBUGGER__.helps.each{|cat, cs|
+        cs.each{|ws, desc|
+          if ws.include? arg
+            @ui.puts desc
+            return
+          end
+        }
+      }
+      @ui.puts "not found: #{arg}"
     end
 
     def ask msg, default = 'Y'
@@ -638,7 +646,7 @@ module DEBUGGER__
       case sig
       when /\A(\d+)\z/
         add_line_breakpoint @tc.location.path, $1.to_i, cond
-      when /\A(.+):(\d+)\z/
+      when /\A(.+)[:\s+](\d+)\z/
         add_line_breakpoint $1, $2.to_i, cond
       when /\A(.+)([\.\#])(.+)\z/
         @tc << [:breakpoint, :method, $1, $2, $3, cond]
@@ -646,7 +654,9 @@ module DEBUGGER__
       when nil
         add_check_breakpoint cond
       else
-        raise "unknown breakpoint format: #{arg}"
+        @ui.puts "Unknown breakpoint format: #{arg}"
+        @ui.puts
+        show_help 'b'
       end
     end
 
@@ -705,20 +715,12 @@ module DEBUGGER__
 
     def on_load iseq, src
       @sr.add iseq, src
-      founds = []
-      @reserved_bps.each_with_index{|rbp, i|
-        (path, line, cond, oneshot) = rbp
 
-        if path == (iseq.absolute_path || iseq.path)
-          founds << rbp
-          unless add_line_breakpoint(path, line, cond, oneshot: oneshot, reserve: false)
-            next
-          end
+      pending_line_breakpoints do |bp|
+        if bp.path == (iseq.absolute_path || iseq.path)
+          bp.try_activate
         end
-      }
-      founds.each{|rbp|
-        @reserved_bps.delete rbp
-      }
+      end
     end
 
     # configuration
@@ -726,67 +728,6 @@ module DEBUGGER__
     def add_catch_breakpoint arg
       bp = CatchBreakpoint.new(arg)
       @bps[bp.key] = bp
-      bp
-    end
-
-    def add_line_breakpoint_exact iseq, events, file, line, cond, oneshot
-      if @bps[[file, line]]
-        return nil # duplicated
-      end
-
-      bp = case
-        when events.include?(:RUBY_EVENT_CALL)
-          # "def foo" line set bp on the beggining of method foo
-          LineBreakpoint.new(:call, iseq, line, cond, oneshot: oneshot)
-        when events.include?(:RUBY_EVENT_LINE)
-          LineBreakpoint.new(:line, iseq, line, cond, oneshot: oneshot)
-        when events.include?(:RUBY_EVENT_RETURN)
-          LineBreakpoint.new(:return, iseq, line, cond, oneshot: oneshot)
-        when events.include?(:RUBY_EVENT_B_RETURN)
-          LineBreakpoint.new(:b_return, iseq, line, cond, oneshot: oneshot)
-        when events.include?(:RUBY_EVENT_END)
-          LineBreakpoint.new(:end, iseq, line, cond, oneshot: oneshot)
-        else
-          nil
-        end
-      @bps[bp.key] = bp if bp
-    end
-
-    NearestISeq = Struct.new(:iseq, :line, :events)
-
-    def add_line_breakpoint_nearest file, line, cond, oneshot
-      nearest = nil # NearestISeq
-
-      ObjectSpace.each_iseq{|iseq|
-        if (iseq.absolute_path || iseq.path) == file && iseq.first_lineno <= line
-          iseq.traceable_lines_norec(line_events = {})
-          lines = line_events.keys.sort
-
-          if !lines.empty? && lines.last >= line
-            nline = lines.bsearch{|l| line <= l}
-            events = line_events[nline]
-
-            next if events == [:RUBY_EVENT_B_CALL]
-
-            if !nearest
-              nearest = NearestISeq.new(iseq, nline, events)
-            else
-              if nearest.iseq.first_lineno <= iseq.first_lineno
-                if (nearest.line > line && !nearest.events.include?(:RUBY_EVENT_CALL)) ||
-                  events.include?(:RUBY_EVENT_CALL)
-                  nearest = NearestISeq.new(iseq, nline, events)
-                end
-              end
-            end
-          end
-        end
-      }
-
-      if nearest
-        add_line_breakpoint_exact nearest.iseq, nearest.events, file, nearest.line, cond, oneshot
-      else
-        return nil
-      end
     end
 
     def resolve_path file
@@ -795,13 +736,26 @@ module DEBUGGER__
       file
     end
 
-    def add_line_breakpoint file, line, cond = nil, oneshot: false, reserve: true
-      file = resolve_path(file)
-      bp = add_line_breakpoint_nearest file, line, cond, oneshot
-      if !bp && reserve
-        @reserved_bps << [file, line, cond, oneshot]
+    def add_breakpoint bp
+      if @bps.has_key? bp.key
+        @ui.puts "duplicated breakpoint: #{bp}"
+      else
+        @bps[bp.key] = bp
       end
-      bp
+    end
+
+    def pending_line_breakpoints
+      @bps.each do |key, bp|
+        if LineBreakpoint === bp && !bp.iseq
+          yield bp
+        end
+      end
+    end
+
+    def add_line_breakpoint file, line, cond = nil, oneshot: false
+      file = resolve_path(file)
+      bp = LineBreakpoint.new(file, line, cond, oneshot: oneshot)
+      add_breakpoint bp
     end
   end
 
@@ -830,8 +784,8 @@ module DEBUGGER__
     }
   end
 
-  def self.add_line_breakpoint file, line, if: if_not_given =  true, oneshot: true
-    ::DEBUGGER__::SESSION.add_line_breakpoint file, line, if_not_given ? nil : binding.local_variable_get(:if), oneshot: true
+  def self.add_line_breakpoint file, line, if: if_not_given =  true, oneshot: false
+    ::DEBUGGER__::SESSION.add_line_breakpoint file, line, if_not_given ? nil : binding.local_variable_get(:if), oneshot: oneshot
   end
 
   def self.add_catch_breakpoint pat

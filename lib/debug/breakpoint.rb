@@ -57,21 +57,26 @@ module DEBUGGER__
   end
 
   class LineBreakpoint < Breakpoint
-    attr_reader :path, :line
+    attr_reader :path, :line, :iseq
 
-    def initialize type, iseq, line, cond = nil, oneshot: false
-      @iseq = iseq
-      @path = iseq.path
+    def initialize path, line, cond = nil, oneshot: false
+      @path = path
       @line = line
-      @type = type
       @cond = cond
       @oneshot = oneshot
+
+      @iseq = nil
+      @type = nil
+
       @key = [@path, @line].freeze
 
       super()
+      try_activate
     end
 
     def setup
+      return unless @type
+
       if !@cond
         @tp = TracePoint.new(@type) do |tp|
           delete if @oneshot
@@ -87,18 +92,93 @@ module DEBUGGER__
     end
 
     def enable
+      return unless @iseq
+
       if @type == :line
         @tp.enable(target: @iseq, target_line: @line)
       else
         @tp.enable(target: @iseq)
       end
+
     rescue ArgumentError
       puts @iseq.disasm # for debug
       raise
     end
 
+    def activate iseq, event, line
+      @iseq = iseq
+      @type = event
+      @line = line
+      @path = iseq.absolute_path
+
+      # TODO: update bps for key
+      @kye = [@path, @line].freeze
+
+      setup
+      enable
+    end
+
+    def activate_exact iseq, events, line
+      case
+      when events.include?(:RUBY_EVENT_CALL)
+        # "def foo" line set bp on the beggining of method foo
+        activate(iseq, :call, line)
+      when events.include?(:RUBY_EVENT_LINE)
+        activate(iseq, :line, line)
+      when events.include?(:RUBY_EVENT_RETURN)
+        activate(iseq, :return, line)
+      when events.include?(:RUBY_EVENT_B_RETURN)
+        activate(iseq, :b_return, line)
+      when events.include?(:RUBY_EVENT_END)
+        activate(iseq, :end, line)
+      else
+        # not actiavated
+      end
+    end
+
+    NearestISeq = Struct.new(:iseq, :line, :events)
+
+    def try_activate
+      nearest = nil # NearestISeq
+
+      ObjectSpace.each_iseq{|iseq|
+        if (iseq.absolute_path || iseq.path) == self.path && iseq.first_lineno <= self.line
+          iseq.traceable_lines_norec(line_events = {})
+          lines = line_events.keys.sort
+
+          if !lines.empty? && lines.last >= line
+            nline = lines.bsearch{|l| line <= l}
+            events = line_events[nline]
+
+            next if events == [:RUBY_EVENT_B_CALL]
+
+            if !nearest
+              nearest = NearestISeq.new(iseq, nline, events)
+            else
+              if nearest.iseq.first_lineno <= iseq.first_lineno
+                if (nearest.line > line && !nearest.events.include?(:RUBY_EVENT_CALL)) ||
+                  events.include?(:RUBY_EVENT_CALL)
+                  nearest = NearestISeq.new(iseq, nline, events)
+                end
+              end
+            end
+          end
+        end
+      }
+
+      if nearest
+        activate_exact nearest.iseq, nearest.events, nearest.line
+      end
+    end
+
     def to_s
-      "line bp #{@iseq.absolute_path}:#{@line} (#{@type})" + super
+      oneshot = @oneshot ? " (oneshot)" : ""
+
+      if @iseq
+        "line bp #{@path}:#{@line} (#{@type})#{oneshot}" + super
+      else
+        "line bp (pending) #{@path}:#{@line}#{oneshot}" + super
+      end
     end
 
     def inspect
@@ -128,7 +208,9 @@ module DEBUGGER__
 
   class CheckBreakpoint < Breakpoint
     def initialize expr
-      @key = @expr = expr.freeze
+      @expr = expr.freeze
+      @key = [:check, @expr].freeze
+
       super()
     end
 
@@ -150,7 +232,9 @@ module DEBUGGER__
 
   class WatchExprBreakpoint < Breakpoint
     def initialize expr, current
-      @key = @expr = expr.freeze
+      @expr = expr.freeze
+      @key = [:watch, @expr].freeze
+
       @current = current
       super()
     end
