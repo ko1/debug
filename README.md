@@ -353,8 +353,18 @@ The `<...>` notation means the argument.
 
 * `bt` or `backtrace`
   * Show backtrace (frame) information.
-* `list`
+* `l[ist]`
   * Show current frame's source code.
+  * Next `list` command shows the successor lines.
+* `l[ist] -`
+  * Show predecessor lines as opposed to the `list` command.
+* `l[ist] <start>` or `l[ist] <start>-<end>`
+  * Show current frame's source code from the line <start> to <end> if given.
+* `edit`
+  * Open the current file on the editor (use `EDITOR` environment variable).
+  * Note that editted file will not be reloaded.
+* `edit <file>`
+  * Open <file> on the editor.
 * `i[nfo]`
   * Show information about the current frame (local variables)
   * It includes `self` as `%self` and a return value as `%return`.
