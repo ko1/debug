@@ -237,6 +237,8 @@ module DEBUGGER__
 
       if File.exist?(path)
         if editor = (ENV['RUBY_DEBUG_EDITOR'] || ENV['EDITOR'])
+          puts "command: #{editor}"
+          puts "   path: #{path}"
           system(editor, path)
         else
           puts "can not find editor setting: ENV['RUBY_DEBUG_EDITOR'] or ENV['EDITOR']"
