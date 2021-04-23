@@ -400,6 +400,8 @@ The `<...>` notation means the argument.
   * Evaluate like `pp <expr>` on the current frame.
 * `e[val] <expr>`
   * Evaluate `<expr>` on the current frame.
+* `irb`
+  * Invoke `irb` on the current frame.
 
 ### Thread control
 

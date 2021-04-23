@@ -471,7 +471,8 @@ module DEBUGGER__
       when 'e', 'eval', 'call'
         @tc << [:eval, :call, arg]
 
-      # skip
+      # * `irb`
+      #   * Invoke `irb` on the current frame.
       when 'irb'
         if @ui.remote?
           @ui.puts "not supported on the remote console."
