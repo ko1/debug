@@ -56,6 +56,10 @@ module DEBUGGER__
       end
     end
 
+    def remote?
+      true
+    end
+
     def setup_interrupt
       prev_handler = trap(:SIGINT) do
         # $stderr.puts "trapped SIGINT"

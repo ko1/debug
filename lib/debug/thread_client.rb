@@ -4,24 +4,25 @@ module DEBUGGER__
   class ThreadClient
     def self.current
       Thread.current[:DEBUGGER__ThreadClient] || begin
-        tc = SESSION.thread_client
+        tc = ::DEBUGGER__::SESSION.thread_client
         Thread.current[:DEBUGGER__ThreadClient] = tc
       end
     end
 
-    attr_reader :location, :thread
+    attr_reader :location, :thread, :mode, :id
 
-    def initialize q_evt, q_cmd, thr = Thread.current
+    def initialize id, q_evt, q_cmd, thr = Thread.current
+      @id = id
       @thread = thr
       @q_evt = q_evt
       @q_cmd = q_cmd
       @step_tp = nil
       @output = []
-      @mode = nil
+      set_mode nil
     end
 
     def inspect
-      "#<DEBUGGER__ThreadClient #{@thread}>"
+      "#<DBG:TC #{self.id}:#{self.mode}@#{@thread.backtrace[-1]}>"
     end
 
     def puts str = ''
@@ -47,7 +48,7 @@ module DEBUGGER__
     ## events
 
     def on_trap sig
-      if @mode == :wait_next_action
+      if self.mode == :wait_next_action
         # raise Interrupt
       else
         on_suspend :trap, sig: sig
@@ -56,6 +57,11 @@ module DEBUGGER__
 
     def on_pause
       on_suspend :pause
+    end
+
+    def on_thread_begin th
+      event! :thread_begin, th
+      wait_next_action
     end
 
     def on_load iseq, eval_src
@@ -95,7 +101,7 @@ module DEBUGGER__
 
       wait_next_action
     end
-    
+
     ## control all
 
     begin
@@ -130,7 +136,8 @@ module DEBUGGER__
       end
     end
 
-    FrameInfo = Struct.new(:location, :self, :binding, :iseq, :class, :has_return_value, :return_value)
+    FrameInfo = Struct.new(:location, :self, :binding, :iseq, :class,
+                           :has_return_value, :return_value, :show_line)
 
     def target_frames
       RubyVM::DebugInspector.open{|dc|
@@ -158,7 +165,11 @@ module DEBUGGER__
     end
 
     def current_frame
-      @target_frames[@current_frame_index]
+      if @target_frames
+        @target_frames[@current_frame_index]
+      else
+        nil
+      end
     end
 
     def file_lines path
@@ -169,23 +180,69 @@ module DEBUGGER__
       end
     end
 
-    def show_src frame_index = @current_frame_index, max_lines: 10
-      if current_line = @target_frames[frame_index]&.location
-        puts
-        path, line = current_line.path, current_line.lineno - 1
-        if file_lines = file_lines(path)
-          lines = file_lines.map.with_index{|e, i|
-            if i == line
+    def show_src(frame_index: @current_frame_index,
+                 update_line: false,
+                 max_lines: 10,
+                 start_line: nil,
+                 end_line: nil,
+                 dir: +1)
+      #
+      if @target_frames && frame = @target_frames[frame_index]
+        if file_lines = file_lines(path = frame.location.path)
+          frame_line = frame.location.lineno - 1
+
+          lines = file_lines.map.with_index do |e, i|
+            if i == frame_line
               "=> #{'%4d' % (i+1)}| #{e}"
             else
               "   #{'%4d' % (i+1)}| #{e}"
             end
-          }
-          min = [0, line - max_lines/2].max
-          max = [min+max_lines, lines.size].min
-          puts "[#{min+1}, #{max}] in #{path}"
-          puts lines[min ... max]
+          end
+
+          unless start_line
+            if frame.show_line
+              if dir > 0
+                start_line = frame.show_line
+              else
+                end_line = frame.show_line - max_lines
+                start_line = [end_line - max_lines, 0].max
+              end
+            else
+              start_line = [frame_line - max_lines/2, 0].max
+            end
+          end
+
+          unless end_line
+            end_line = [start_line + max_lines, lines.size].min
+          end
+
+          if update_line
+            frame.show_line = end_line
+          end
+
+          puts "[#{start_line+1}, #{end_line}] in #{path}" unless update_line
+          puts lines[start_line ... end_line]
         end
+      end
+    end
+
+    def show_by_editor path = nil
+      unless path
+        if @target_frames && frame = @target_frames[@current_frame_index]
+          path = frame.location.path
+        else
+          return # can't get path
+        end
+      end
+
+      if File.exist?(path)
+        if editor = (ENV['RUBY_DEBUG_EDITOR'] || ENV['EDITOR'])
+          system(editor, path)
+        else
+          puts "can not find editor setting: ENV['RUBY_DEBUG_EDITOR'] or ENV['EDITOR']"
+        end
+      else
+        puts "Can not find file: #{path}"
       end
     end
 
@@ -303,13 +360,16 @@ module DEBUGGER__
       buff
     end
 
-    def show_frames max = @target_frames.size
-      size = @target_frames.size
-      max.times{|i|
-        break if i >= size
-        puts frame_str(i)
-      }
-      puts "    # and #{size - max} frames (use `bt' command for all frames)" if max < size
+    def show_frames max = (@target_frames || []).size
+      if frames = @target_frames
+        size = @target_frames.size
+        max += 1 if size == max + 1
+        max.times{|i|
+          break if i >= size
+          puts frame_str(i)
+        }
+        puts "    # and #{size - max} frames (use `bt' command for all frames)" if max < size
+      end
     end
 
     def show_frame i=0
@@ -391,10 +451,16 @@ module DEBUGGER__
       end
     end
 
+    def set_mode mode
+      @mode = mode
+    end
+
     def wait_next_action
-      @mode = :wait_next_action
+      set_mode :wait_next_action
 
       while cmds = @q_cmd.pop
+        # pp [self, cmds: cmds]
+
         cmd, *args = *cmds
 
         case cmd
@@ -485,15 +551,22 @@ module DEBUGGER__
           case type
           when :backtrace
             show_frames
+
           when :list
-            show_src
+            show_src(update_line: true, **(args.first || {}))
+
+          when :edit
+            show_by_editor(args.first)
+
           when :local
             show_frame
             show_locals
             show_ivars
+
           when :object_info
             expr = args.shift
             show_object_info expr
+
           else
             raise "unknown show param: " + [type, *args].inspect
           end
@@ -513,11 +586,21 @@ module DEBUGGER__
       pp [__FILE__, __LINE__, e, e.backtrace]
       raise
     ensure
-      @mode = nil
+      set_mode nil
     end
 
     def to_s
-      "(#{@thread.name || @thread.status})@#{current_frame&.location}"
+      loc = current_frame&.location
+
+      if loc
+        str = "(#{@thread.name || @thread.status})@#{loc}"
+      else
+        str = "(#{@thread.name || @thread.status})@#{@thread.to_s}"
+      end
+
+      p self
+      str += " (not under control)" unless self.mode
+      str
     end
   end
 end

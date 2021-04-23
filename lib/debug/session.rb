@@ -57,6 +57,7 @@ module DEBUGGER__
       @q_evt = Queue.new
       @displays = []
       @tc = nil
+      @tc_id = 0
       @initial_commands = []
 
       @tp_load_script = TracePoint.new(:script_compiled){|tp|
@@ -74,6 +75,10 @@ module DEBUGGER__
           when :load
             iseq, src = ev_args
             on_load iseq, src
+            tc << :continue
+          when :thread_begin
+            th = ev_args.shift
+            on_thread_begin th
             tc << :continue
           when :suspend
             case ev_args.first
@@ -119,6 +124,10 @@ module DEBUGGER__
       @management_threads << @ui.reader_thread if @ui.respond_to? :reader_thread
 
       setup_threads
+
+      @tp_thread_begin = TracePoint.new(:thread_begin){|tp|
+        ThreadClient.current.on_thread_begin Thread.current
+      }.enable
     end
 
     def add_initial_commands cmds
@@ -150,6 +159,8 @@ module DEBUGGER__
           retry
         end
       end
+    ensure
+      @tc = nil
     end
 
     def wait_command
@@ -321,10 +332,47 @@ module DEBUGGER__
       when 'bt', 'backtrace'
         @tc << [:show, :backtrace]
 
-      # * `list`
+      # * `l[ist]`
       #   * Show current frame's source code.
-      when 'list'
-        @tc << [:show, :list]
+      #   * Next `list` command shows the successor lines.
+      # * `l[ist] -`
+      #   * Show predecessor lines as opposed to the `list` command.
+      # * `l[ist] <start>` or `l[ist] <start>-<end>`
+      #   * Show current frame's source code from the line <start> to <end> if given.
+      when 'l', 'list'
+        case arg ? arg.strip : nil
+        when /\A(\d+)\z/
+          @tc << [:show, :list, {start_line: arg.to_i - 1}]
+        when /\A-\z/
+          @tc << [:show, :list, {dir: -1}]
+        when /\A(\d+)-(\d+)\z/
+          @tc << [:show, :list, {start_line: $1.to_i - 1, end_line: $2.to_i}]
+        when nil
+          @tc << [:show, :list]
+        else
+          @ui.puts "Can not handle list argument: #{arg}"
+          return :retry
+        end
+
+      # * `edit`
+      #   * Open the current file on the editor (use `EDITOR` environment variable).
+      #   * Note that editted file will not be reloaded.
+      # * `edit <file>`
+      #   * Open <file> on the editor.
+      when 'edit'
+        if @ui.remote?
+          @ui.puts "not supported on the remote console."
+          return :retry
+        end
+
+        begin
+          arg = resolve_path(arg) if arg
+        rescue Errno::ENOENT
+          @ui.puts "not found: #{arg}"
+          return :retry
+        end
+
+        @tc << [:show, :edit, arg]
 
       # * `i[nfo]`
       #   * Show information about the current frame (local variables)
@@ -425,6 +473,10 @@ module DEBUGGER__
 
       # skip
       when 'irb'
+        if @ui.remote?
+          @ui.puts "not supported on the remote console."
+          return :retry
+        end
         @tc << [:eval, :call, 'binding.irb']
 
       ### Thread control
@@ -621,26 +673,7 @@ module DEBUGGER__
       end
     end
 
-    def thread_list
-      thcs, unmanaged_ths = update_thread_list
-      thcs.each_with_index{|thc, i|
-        @ui.puts "#{@tc == thc ? "--> " : "    "}\##{i} #{thc}"
-      }
-
-      if !unmanaged_ths.empty?
-        @ui.puts "The following threads are not managed yet by the debugger:"
-        unmanaged_ths.each{|th|
-          @ui.puts "     " + th.to_s
-        }
-      end
-    end
-
-    def thread_switch n
-      if th = @th_clients.keys[n]
-        @tc = @th_clients[th]
-      end
-      thread_list
-    end
+    # threads
 
     def update_thread_list
       list = Thread.list
@@ -657,20 +690,64 @@ module DEBUGGER__
           unmanaged << th
         end
       }
-      return thcs, unmanaged
+      return thcs.sort_by{|thc| thc.id}, unmanaged
+    end
+
+    def thread_list
+      thcs, unmanaged_ths = update_thread_list
+      thcs.each_with_index{|thc, i|
+        @ui.puts "#{@tc == thc ? "--> " : "    "}\##{i} #{thc}"
+      }
+
+      if !unmanaged_ths.empty?
+        @ui.puts "The following threads are not managed yet by the debugger:"
+        unmanaged_ths.each{|th|
+          @ui.puts "     " + th.to_s
+        }
+      end
+    end
+
+    def thread_switch n
+      thcs, unmanaged_ths = update_thread_list
+
+      if tc = thcs[n]
+        if tc.mode
+          @tc = tc
+        else
+          @ui.puts "#{tc.thread} is not controllable yet."
+        end
+      end
+      thread_list
+    end
+
+    def thread_client_create th
+      @th_clients[th] = ThreadClient.new((@tc_id += 1), @q_evt, Queue.new, th)
     end
 
     def setup_threads
       stop_all_threads do
         Thread.list.each{|th|
-          @th_clients[th] = ThreadClient.new(@q_evt, Queue.new, th)
+          thread_client_create(th)
         }
+      end
+    end
+
+    def on_thread_begin th
+      if @th_clients.has_key? th
+        # OK
+      else
+        # TODO: NG?
+        thread_client_create th
       end
     end
 
     def thread_client
       thr = Thread.current
-      @th_clients[thr] ||= ThreadClient.new(@q_evt, Queue.new)
+      if @th_clients.has_key? thr
+        @th_clients[thr]
+      else
+        @th_clients[thr] = thread_client_create(thr)
+      end
     end
 
     def stop_all_threads

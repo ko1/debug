@@ -5,6 +5,10 @@ module DEBUGGER__
     def initialize
     end
 
+    def remote?
+      false
+    end
+
     def quit n
       exit n
     end
