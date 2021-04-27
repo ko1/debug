@@ -7,12 +7,24 @@ Rake::TestTask.new(:test) do |t|
   t.test_files = FileList["test/**/*_test.rb"]
 end
 
-task :default => :test
+require "rake/extensiontask"
+
+task :build => :compile
+
+Rake::ExtensionTask.new("debug") do |ext|
+  ext.lib_dir = "lib/debug"
+end
+
+task :default => [:clobber, :compile, :test, 'README.md']
 
 file 'README.md' => ['lib/debug/session.rb', 'exe/rdbg', 'misc/README.md.erb'] do
   require_relative 'lib/debug/session'
   require 'erb'
   File.write 'README.md', ERB.new(File.read('misc/README.md.erb')).result
   puts 'README.md is updated.'
+end
+
+task :run => :compile do
+  system(RbConfig.ruby, *%w(-I ./lib test.rb))
 end
 

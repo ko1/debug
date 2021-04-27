@@ -6,8 +6,8 @@ Gem::Specification.new do |spec|
   spec.authors       = ["Koichi Sasada"]
   spec.email         = ["ko1@atdot.net"]
 
-  spec.summary       = %q{debug.rb}
-  spec.description   = %q{debug.rb}
+  spec.summary       = %q{Renewed debug.rb}
+  spec.description   = %q{Renewed debugger and debug functionality}
   spec.homepage      = "https://github.com/ko1/debug"
   spec.license       = "MIT"
   spec.required_ruby_version = Gem::Requirement.new(">= 2.6.0")
@@ -16,6 +16,7 @@ Gem::Specification.new do |spec|
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "https://github.com/ko1/debug"
+
   # spec.metadata["changelog_uri"] = "TODO: Put your gem's CHANGELOG.md URL here."
 
   # Specify which files should be added to the gem when it is released.
@@ -26,7 +27,5 @@ Gem::Specification.new do |spec|
   spec.bindir        = "exe"
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
-
-  spec.add_runtime_dependency 'debug_inspector'
-  spec.add_runtime_dependency 'iseq_collector'
+  spec.extensions    = ['ext/debug/extconf.rb']
 end

@@ -1,7 +1,11 @@
-﻿require 'json'
-require 'pp'
-require 'debug_inspector'
-require 'iseq_collector'
+﻿
+module DEBUGGER__
+  # used in thread_client.c
+  FrameInfo = Struct.new(:location, :self, :binding, :iseq, :class, :frame_depth,
+                         :has_return_value, :return_value, :show_line)
+end
+
+require_relative 'debug.so'
 
 require_relative 'source_repository'
 require_relative 'breakpoint'
@@ -39,6 +43,10 @@ class RubyVM::InstructionSequence
 
   def locals
     self.to_a[10]
+  end
+
+  def last_line
+    self.to_a[4][:code_location][2]
   end
 end
 
@@ -262,6 +270,8 @@ module DEBUGGER__
 
       # skip
       when 'bv'
+        require 'json'
+
         h = Hash.new{|h, k| h[k] = []}
         @bps.each{|key, bp|
           if LineBreakpoint === bp

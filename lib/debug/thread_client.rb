@@ -1,4 +1,5 @@
 require 'objspace'
+require 'pp'
 
 module DEBUGGER__
   class ThreadClient
@@ -75,7 +76,8 @@ module DEBUGGER__
 
     def on_suspend event, tp = nil, bp: nil, sig: nil
       @current_frame_index = 0
-      @target_frames = target_frames
+      @target_frames = DEBUGGER__.capture_frames __dir__
+
       cf = @target_frames.first
       if cf
         @location = cf.location
@@ -134,34 +136,6 @@ module DEBUGGER__
         }
         @step_tp.enable
       end
-    end
-
-    FrameInfo = Struct.new(:location, :self, :binding, :iseq, :class,
-                           :has_return_value, :return_value, :show_line)
-
-    def target_frames
-      RubyVM::DebugInspector.open{|dc|
-        locs = dc.backtrace_locations
-        locs.map.with_index{|e, i|
-          unless File.dirname(e.path) == File.dirname(__FILE__)
-            FrameInfo.new(
-              e,
-              dc.frame_self(i),
-              dc.frame_binding(i),
-              dc.frame_iseq(i),
-              dc.frame_class(i))
-          end
-        }.compact
-      }
-    end
-
-    def target_frames_count
-      RubyVM::DebugInspector.open{|dc|
-        locs = dc.backtrace_locations
-        locs.count{|e|
-          e.path != __FILE__
-        }
-      }
     end
 
     def current_frame
@@ -474,13 +448,29 @@ module DEBUGGER__
           when :in
             step_tp{true}
           when :next
-            size = @target_frames.size
+            frame = @target_frames.first
+            path = frame.location.absolute_path || "!eval:#{frame.location.path}"
+            line = frame.location.lineno
+            frame.iseq.traceable_lines_norec(lines = {})
+            next_line = lines.keys.bsearch{|e| e > line}
+            if !next_line && (last_line = frame.iseq.last_line) > line
+              next_line = last_line
+            end
+            depth = @target_frames.first.frame_depth
+
             step_tp{
-              target_frames_count() <= size
+              loc = caller_locations(2, 1).first
+              loc_path = loc.absolute_path || "!eval:#{loc.path}"
+
+              (next_line && loc_path == path && loc.lineno <= next_line) ||
+              (DEBUGGER__.frame_depth - 3 < depth)
             }
           when :finish
-            size = @target_frames.size
-            step_tp{target_frames_count() < size}
+            depth = @target_frames.first.frame_depth
+            step_tp{
+              # 3 is debugger's frame count
+              DEBUGGER__.frame_depth - 3 < depth
+            }
           else
             raise
           end
@@ -600,7 +590,6 @@ module DEBUGGER__
         str = "(#{@thread.name || @thread.status})@#{@thread.to_s}"
       end
 
-      p self
       str += " (not under control)" unless self.mode
       str
     end
