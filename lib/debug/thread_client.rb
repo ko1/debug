@@ -371,10 +371,9 @@ module DEBUGGER__
     end
 
     def eval_klass_name klass_name
-      frame_eval(klass_name, re_raise: true)
-    rescue Exception => e
-      p e
-      nil
+      if (obj = frame_eval(klass_name, failed_value: failed = Object.new)) != failed
+        obj
+      end
     end
 
     def search_method klass, op, method_name
@@ -462,7 +461,8 @@ module DEBUGGER__
               loc = caller_locations(2, 1).first
               loc_path = loc.absolute_path || "!eval:#{loc.path}"
 
-              (next_line && loc_path == path && loc.lineno <= next_line) ||
+              (next_line && loc_path == path &&
+                (loc_lineno = loc.lineno) > line && loc_lineno <= next_line) ||
               (DEBUGGER__.frame_depth - 3 < depth)
             }
           when :finish
