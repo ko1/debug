@@ -153,7 +153,7 @@ module DEBUGGER__
 
             next if events == [:RUBY_EVENT_B_CALL]
 
-            if !nearest
+            if !nearest || ((line - nline).abs < (line - nearest.line).abs)
               nearest = NearestISeq.new(iseq, nline, events)
             else
               if nearest.iseq.first_lineno <= iseq.first_lineno
