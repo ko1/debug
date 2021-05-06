@@ -111,6 +111,14 @@ module DEBUGGER__
               bp = ev_args[1]
               @bps[bp.key] = bp
               show_bps bp
+            when :try_display
+              failed_results = ev_args[1]
+              if failed_results.size > 0
+                i, msg = failed_results.last
+                if i+1 == @displays.size
+                  @ui.puts "canceled: #{@displays.pop}"
+                end
+              end
             when :method_breakpoint
               bp = ev_args[1]
               if bp
@@ -402,8 +410,12 @@ module DEBUGGER__
       # * `display <expr>`
       #   * Show the result of `<expr>` at every suspended timing.
       when 'display'
-        @displays << arg if arg && !arg.empty?
-        @tc << [:eval, :display, @displays]
+        if arg && !arg.empty?
+          @displays << arg 
+          @tc << [:eval, :try_display, @displays]
+        else
+          @tc << [:eval, :display, @displays]
+        end
 
       # * `undisplay`
       #   * Remove all display settings.

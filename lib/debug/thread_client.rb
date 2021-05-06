@@ -19,6 +19,8 @@ module DEBUGGER__
       @q_cmd = q_cmd
       @step_tp = nil
       @output = []
+      @src_lines_on_stop = (DEBUGGER__::CONFIG[:show_src_lines]   || 10).to_i
+      @show_frames_on_stop = (DEBUGGER__::CONFIG[:show_frames] || 2).to_i
       set_mode nil
     end
 
@@ -89,8 +91,8 @@ module DEBUGGER__
       end
 
       if event != :pause
-        show_src
-        show_frames 3
+        show_src max_lines: @src_lines_on_stop
+        show_frames @show_frames_on_stop
 
         if bp
           event! :suspend, :breakpoint, bp.key
@@ -194,8 +196,10 @@ module DEBUGGER__
             frame.show_line = end_line
           end
 
-          puts "[#{start_line+1}, #{end_line}] in #{path}" unless update_line
-          puts lines[start_line ... end_line]
+          if start_line != end_line
+            puts "[#{start_line+1}, #{end_line}] in #{path}" unless update_line
+            puts lines[start_line ... end_line]
+          end
         end
       end
     end
@@ -244,24 +248,25 @@ module DEBUGGER__
       end
     end
 
-    def frame_eval src, failed_value: nil, re_raise: false
+    def frame_eval src, re_raise: false
       begin
         @success_last_eval = false
 
         b = current_frame.binding
         result = if b
-          b.eval(src)
-        else
-          frame_self = current_frame.self
-          frame_self.instance_eval(src)
-        end
+                   b.eval(src)
+                 else
+                   frame_self = current_frame.self
+                   frame_self.instance_eval(src)
+                 end
         @success_last_eval = true
         result
 
       rescue Exception => e
-        return failed_value if failed_value
+        return yield(e) if block_given?
 
-        puts "Error: #{e}"
+        puts "eval error: #{e}"
+
         e.backtrace_locations.each do |loc|
           break if loc.path == __FILE__
           puts "  #{loc}"
@@ -438,7 +443,12 @@ module DEBUGGER__
           break
         when :eval
           eval_type, eval_src = *args
-          result = frame_eval(eval_src)
+
+          case eval_type
+          when :display, :try_display
+          else
+            result = frame_eval(eval_src)
+          end
           result_type = nil
 
           case eval_type
@@ -450,11 +460,18 @@ module DEBUGGER__
             puts out
           when :call
             result = frame_eval(eval_src)
-          when :display
+          when :display, :try_display
+            failed_results = []
             eval_src.each_with_index{|src, i|
-              puts "#{i}: #{src} = #{frame_eval(src, failed_value: :error).inspect}"
+              result = frame_eval(src){|e|
+                failed_results << [i, e.message]
+                "<error: #{e.message}>"
+              }
+              puts "#{i}: #{src} = #{result}"
             }
-            result = :ok
+
+            result_type = eval_type
+            result = failed_results
           when :watch
             if @success_last_eval
               puts "#{eval_src} = #{result}"

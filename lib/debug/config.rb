@@ -26,12 +26,17 @@ module DEBUGGER__
   end
 
   CONFIG_MAP = {
-    port:        'RUBY_DEBUG_PORT',        # TCP/IP remote debugging: port
-    host:        'RUBY_DEBUG_HOST',        # TCP/IP remote debugging: host (localhost if not given)
-    sock_dir:    'RUBY_DEBUG_SOCK_DIR',    # UNIX Domain Socket remote debugging: socket directory
+    # execution preferences
     nonstop:     'RUBY_DEBUG_NONSTOP',     # Nonstop mode ('1' is nonstop)
     init_script: 'RUBY_DEBUG_INIT_SCRIPT', # debug command script path loaded at first stop
     commands:    'RUBY_DEBUG_COMMANDS',    # debug commands invoked at first stop. commands should be separated by ';;'
+    show_src_lines: 'RUBY_DEBUG_SHOW_SRC_LINES', # Show n lines source code on breakpoint (default: 10 lines).
+    show_frames:    'RUBY_DEBUG_SHOW_FRAMES',    # Show n lines source code on breakpoint (default: 2 frames).
+
+    # remote
+    port:        'RUBY_DEBUG_PORT',        # TCP/IP remote debugging: port
+    host:        'RUBY_DEBUG_HOST',        # TCP/IP remote debugging: host (localhost if not given)
+    sock_dir:    'RUBY_DEBUG_SOCK_DIR',    # UNIX Domain Socket remote debugging: socket directory
   }.freeze
 
   def self.config_to_env config
