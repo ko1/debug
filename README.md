@@ -17,7 +17,7 @@ New debug.rb has several advantages:
   * Support suspending and entering to the console debugging with `Ctrl-C` at most of timing.
   * Show parameters on backtrace command.
 
-# How to install
+# Installation
 
 ```
 $ gem install debug --pre
