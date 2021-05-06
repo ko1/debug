@@ -342,7 +342,7 @@ module DEBUGGER__
     end
 
     def show_frames max = (@target_frames || []).size
-      if frames = @target_frames
+      if max > 0 && frames = @target_frames
         size = @target_frames.size
         max += 1 if size == max + 1
         max.times{|i|
