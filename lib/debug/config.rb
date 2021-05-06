@@ -31,7 +31,7 @@ module DEBUGGER__
     init_script: 'RUBY_DEBUG_INIT_SCRIPT', # debug command script path loaded at first stop
     commands:    'RUBY_DEBUG_COMMANDS',    # debug commands invoked at first stop. commands should be separated by ';;'
     show_src_lines: 'RUBY_DEBUG_SHOW_SRC_LINES', # Show n lines source code on breakpoint (default: 10 lines).
-    show_frames:    'RUBY_DEBUG_SHOW_FRAMES',    # Show n lines source code on breakpoint (default: 2 frames).
+    show_frames:    'RUBY_DEBUG_SHOW_FRAMES',    # Show n frames on breakpoint (default: 2 frames).
 
     # remote
     port:        'RUBY_DEBUG_PORT',        # TCP/IP remote debugging: port

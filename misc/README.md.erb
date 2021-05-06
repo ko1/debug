@@ -292,6 +292,9 @@ You can control debugger's behavior with environment variables:
 * `RUBY_DEBUG_NONSTOP`: 1 for nonstop at the beggining of program.
 * `RUBY_DEBUG_INIT_SCRIPT`: Initial script path loaded at the first stop.
 * `RUBY_DEBUG_COMMANDS`: Debug commands invoked at the first stop. Commands should be separated by ';;'.
+* `RUBY_DEBUG_SHOW_SRC_LINES`: Show n lines source code on breakpoint (default: 10 lines).
+* `RUBY_DEBUG_SHOW_FRAMES`: Show n frames on breakpoint (default: 2 frames).
+
 * Remote debugging
   * `RUBY_DEBUG_PORT`: TCP/IP remote debugging: port to open.
   * `RUBY_DEBUG_HOST`: TCP/IP remote debugging: host (localhost if not given) to open.
