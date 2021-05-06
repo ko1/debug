@@ -2,12 +2,16 @@
 module DEBUGGER__
   def self.unix_domain_socket_dir
     case
-    when path = ENV['RUBY_DEBUG_SOCK_DIR']
+    when path = DEBUGGER__::CONFIG[:sock_dir]
     when path = ENV['XDG_RUNTIME_DIR']
     when home = ENV['HOME']
       path = File.join(home, '.ruby-debug-sock')
-      unless File.exist?(path)
+
+      case
+      when !File.exist?(path)
         Dir.mkdir(path, 0700)
+      when !File.directory?(path)
+        raise "#{path} is not a directory."
       end
     else
       raise 'specify RUBY_DEBUG_SOCK_DIR environment variable for UNIX domain socket directory.'
