@@ -856,6 +856,29 @@ module DEBUGGER__
         yield bp
       end
     end
+
+    def method_added tp
+      b = tp.binding
+      if var_name = b.local_variables.first
+        mid = b.local_variable_get(var_name)
+        found = false
+
+        @bps.each{|k, bp|
+          case bp
+          when MethodBreakpoint
+            if bp.method.nil?
+              found = true
+              if bp.sig_method_name == mid.to_s
+                bp.enable(quiet: true)
+              end
+            end
+          end
+        }
+        unless found
+          METHOD_ADDED_TRACKER.disable
+        end
+      end
+    end
   end
 
   # String for requring location
@@ -994,4 +1017,19 @@ module DEBUGGER__
   end
 
   CONFIG = ::DEBUGGER__.parse_argv(ENV['RUBY_DEBUG_OPT'])
+
+  class ::Module
+    def method_added mid; end
+    def singleton_method_added mid; end
+  end
+
+  def self.method_added tp
+    begin
+      SESSION.method_added tp
+    rescue Exception => e
+      p e
+    end
+  end
+
+  METHOD_ADDED_TRACKER = self.create_method_added_tracker
 end

@@ -2,11 +2,11 @@ module DEBUGGER__
   class Breakpoint
     attr_reader :key
 
-    def initialize
+    def initialize do_enable = true
       @deleted = false
 
       setup
-      enable
+      enable if do_enable
     end
 
     def safe_eval b, expr
@@ -276,16 +276,20 @@ module DEBUGGER__
   end
 
   class MethodBreakpoint < Breakpoint
-    def initialize m, c
-      if Array === m
-        @key = @pending_method = m
-        @method = nil
-      else
-        @key = @method = m
-      end
+    attr_reader :sig_method_name, :method
 
-      @cond = c
-      super()
+    def initialize b, klass_name, op, method_name, cond
+      @sig_klass_name = klass_name
+      @sig_op = op
+      @sig_method_name = method_name
+      @klass_eval_binding = b
+
+      @klass = nil
+      @method = nil
+      @cond = cond
+      @key = "#{klass_name}#{op}#{method_name}".freeze
+
+      super(false)
     end
 
     def setup
@@ -301,18 +305,59 @@ module DEBUGGER__
       end
     end
 
-    def enable
-      if @method
-        @tp.enable(target: @method)
+    def eval_class_name
+      return @klass if @klass
+      @klass = @klass_eval_binding.eval(@sig_klass_name)
+      @klass_eval_binding = nil
+      @klass
+    end
+
+    def search_method
+      case @sig_op
+      when '.'
+        @method = @klass.method(@sig_method_name)
+      when '#'
+        @method = @klass.instance_method(@sig_method_name)
+      else
+        raise "Unknown op: #{@sig_op}"
       end
+    end
+
+    def enable quiet: false
+      eval_class_name
+      search_method
+
+      begin
+        retried = false
+        @tp.enable(target: @method)
+
+      rescue ArgumentError => e
+        raise if retried
+        retried = true
+
+        # maybe C method
+        @klass.module_eval do
+          orig_name = @sig_method_name + '__orig__'
+          alias_method orig_name, @sig_method_name
+          define_method(@sig_method_name) do |*args|
+            send(orig_name, *args)
+          end
+        end
+        retry
+      end
+    rescue Exception
+      raise unless quiet
+    end
+
+    def sig
+      @key
     end
 
     def to_s
       if @method
-        "method bp: #{@method}"
+        "method bp: #{sig}"
       else
-        a, b, c, d = @pending_method
-        "method bp (pending): #{a}#{c}#{d}"
+        "method bp (pending): #{sig}"
       end + super
     end
   end

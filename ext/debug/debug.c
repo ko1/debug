@@ -3,6 +3,9 @@
 #include "ruby/debug.h"
 #include "ruby/encoding.h"
 
+//
+static VALUE rb_mDebugger;
+
 // iseq
 typedef struct rb_iseq_struct rb_iseq_t;
 VALUE rb_iseq_realpath(const rb_iseq_t *iseq);
@@ -80,14 +83,36 @@ frame_depth(VALUE self)
     return INT2FIX(RARRAY_LEN(bt));
 }
 
+static void
+method_added_tracker(VALUE tpval, void *ptr)
+{
+    rb_trace_arg_t *arg = rb_tracearg_from_tracepoint(tpval);
+    VALUE mid = rb_tracearg_callee_id(arg);
+
+    if (RB_UNLIKELY(mid == ID2SYM(rb_intern("method_added")) ||
+                    mid == ID2SYM(rb_intern("singleton_method_method_added")))) {
+        VALUE args[] = {
+            tpval,
+        };
+        rb_funcallv(rb_mDebugger, rb_intern("method_added"), 1, args);
+    }
+}
+
+static VALUE
+create_method_added_tracker(VALUE self)
+{
+    return rb_tracepoint_new(0, RUBY_EVENT_CALL, method_added_tracker, NULL);
+}
+
 void Init_iseq_collector(void);
 
 void
 Init_debug(void)
 {
-    VALUE rb_mDebugger = rb_const_get(rb_cObject, rb_intern("DEBUGGER__"));
+    rb_mDebugger = rb_const_get(rb_cObject, rb_intern("DEBUGGER__"));
     rb_cFrameInfo = rb_const_get(rb_mDebugger, rb_intern("FrameInfo"));
     rb_define_singleton_method(rb_mDebugger, "capture_frames", capture_frames, 1);
     rb_define_singleton_method(rb_mDebugger, "frame_depth", frame_depth, 0);
+    rb_define_singleton_method(rb_mDebugger, "create_method_added_tracker", create_method_added_tracker, 0);
     Init_iseq_collector();
 }
