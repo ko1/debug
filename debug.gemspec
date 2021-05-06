@@ -6,18 +6,14 @@ Gem::Specification.new do |spec|
   spec.authors       = ["Koichi Sasada"]
   spec.email         = ["ko1@atdot.net"]
 
-  spec.summary       = %q{Renewed debug.rb}
-  spec.description   = %q{Renewed debugger and debug functionality}
-  spec.homepage      = "https://github.com/ko1/debug"
-  spec.license       = "MIT"
+  spec.summary       = %q{Debugging functionality for Ruby}
+  spec.description   = %q{Debugging functionality for Ruby. This is completely rewritten debug.rb which was contained from the encient Ruby versions.}
+  spec.homepage      = "https://github.com/ruby debug"
+  spec.licenses      = ["Ruby", "BSD-2-Clause"]
   spec.required_ruby_version = Gem::Requirement.new(">= 2.6.0")
 
-  # spec.metadata["allowed_push_host"] = "TODO: Set to 'http://mygemserver.com'"
-
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "https://github.com/ko1/debug"
-
-  # spec.metadata["changelog_uri"] = "TODO: Put your gem's CHANGELOG.md URL here."
+  spec.metadata["source_code_uri"] = spec.homepage
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
