@@ -60,11 +60,12 @@ module DEBUGGER__
   class LineBreakpoint < Breakpoint
     attr_reader :path, :line, :iseq
 
-    def initialize path, line, cond = nil, oneshot: false
+    def initialize path, line, cond: nil, oneshot: false, hook_call: true
       @path = path
       @line = line
       @cond = cond
       @oneshot = oneshot
+      @hook_call = hook_call
 
       @iseq = nil
       @type = nil
@@ -153,12 +154,18 @@ module DEBUGGER__
 
             next if events == [:RUBY_EVENT_B_CALL]
 
+            if @hook_call &&
+               events.include?(:RUBY_EVENT_CALL) &&
+               self.line == iseq.first_lineno
+              nline = iseq.first_lineno
+            end
+
             if !nearest || ((line - nline).abs < (line - nearest.line).abs)
               nearest = NearestISeq.new(iseq, nline, events)
             else
-              if nearest.iseq.first_lineno <= iseq.first_lineno
+              if @hook_call && nearest.iseq.first_lineno <= iseq.first_lineno
                 if (nearest.line > line && !nearest.events.include?(:RUBY_EVENT_CALL)) ||
-                  events.include?(:RUBY_EVENT_CALL)
+                   (events.include?(:RUBY_EVENT_CALL))
                   nearest = NearestISeq.new(iseq, nline, events)
                 end
               end

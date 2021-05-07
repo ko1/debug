@@ -1,5 +1,4 @@
-﻿
-module DEBUGGER__
+﻿module DEBUGGER__
   # used in thread_client.c
   FrameInfo = Struct.new(:location, :self, :binding, :iseq, :class, :frame_depth,
                          :has_return_value, :return_value, :show_line)
@@ -681,9 +680,9 @@ module DEBUGGER__
 
       case sig
       when /\A(\d+)\z/
-        add_line_breakpoint @tc.location.path, $1.to_i, cond
+        add_line_breakpoint @tc.location.path, $1.to_i, cond: cond
       when /\A(.+)[:\s+](\d+)\z/
-        add_line_breakpoint $1, $2.to_i, cond
+        add_line_breakpoint $1, $2.to_i, cond: cond
       when /\A(.+)([\.\#])(.+)\z/
         @tc << [:breakpoint, :method, $1, $2, $3, cond]
         return :noretry
@@ -853,9 +852,9 @@ module DEBUGGER__
       raise
     end
 
-    def add_line_breakpoint file, line, cond = nil, oneshot: false
+    def add_line_breakpoint file, line, **kw
       file = resolve_path(file)
-      bp = LineBreakpoint.new(file, line, cond, oneshot: oneshot)
+      bp = LineBreakpoint.new(file, line, **kw)
       add_breakpoint bp
     rescue Errno::ENOENT => e
       @ui.puts e.message
@@ -918,8 +917,8 @@ module DEBUGGER__
     }
   end
 
-  def self.add_line_breakpoint file, line, if: if_not_given =  true, oneshot: false
-    ::DEBUGGER__::SESSION.add_line_breakpoint file, line, if_not_given ? nil : binding.local_variable_get(:if), oneshot: oneshot
+  def self.add_line_breakpoint file, line, **kw
+    ::DEBUGGER__::SESSION.add_line_breakpoint file, line, **kw
   end
 
   def self.add_catch_breakpoint pat
@@ -942,10 +941,10 @@ module DEBUGGER__
       if ::DEBUGGER__::CONFIG[:nonstop] != '1'
         if loc = ::DEBUGGER__.require_location
           # require 'debug/console' or 'debug'
-          add_line_breakpoint loc.absolute_path, loc.lineno + 1, oneshot: true
+          add_line_breakpoint loc.absolute_path, loc.lineno + 1, oneshot: true, hook_call: false
         else
           # -r
-          add_line_breakpoint $0, 1, oneshot: true
+          add_line_breakpoint $0, 1, oneshot: true, hook_call: false
         end
       end
 
