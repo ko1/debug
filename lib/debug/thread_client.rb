@@ -124,6 +124,7 @@ module DEBUGGER__
         @step_tp = TracePoint.new(:line, :b_return, :return){|tp|
           next if SESSION.break? tp.path, tp.lineno
           next if !yield
+          next if tp.path.start_with?(__dir__)
           tp.disable
           on_suspend tp.event, tp
         }
@@ -254,7 +255,8 @@ module DEBUGGER__
 
         b = current_frame.binding
         result = if b
-                   b.eval(src)
+                   f, l = b.source_location
+                   b.eval(src, "(rdbg)/#{f}")
                  else
                    frame_self = current_frame.self
                    frame_self.instance_eval(src)
@@ -324,7 +326,7 @@ module DEBUGGER__
             buff << " {|#{args}|}"
           end
         else
-          if (callee = b.eval('__callee__')) && (argc = iseq.argc) > 0
+          if (callee = b.eval('__callee__', __FILE__, __LINE__)) && (argc = iseq.argc) > 0
             args = parameters_info b, iseq.locals[0...argc]
             ksig = klass_sig frame
             buff << " #{ksig}#{callee}(#{args})"
